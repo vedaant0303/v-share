@@ -7,6 +7,7 @@ cloudflared.exe
 uploads/
 Received_Files/
 test_upload.js
+vshare_config.json
 
 # IDE & OS
 .vscode/

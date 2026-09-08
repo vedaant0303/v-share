@@ -13,14 +13,47 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 4000;
+
+// Persistent User Configuration (User-selected PC destination path)
+const CONFIG_FILE = path.join(__dirname, 'vshare_config.json');
+let userConfig = {
+  savePath: '',
+  isConfigured: false
+};
+
+try {
+  if (fs.existsSync(CONFIG_FILE)) {
+    userConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  }
+} catch (e) {
+  console.warn('Config notice:', e.message);
+}
+
 const defaultUploadDir = process.env.RENDER
   ? path.join(__dirname, 'uploads')
   : path.join(os.homedir(), 'Downloads', 'Submitt');
-const UPLOAD_DIR = process.env.UPLOAD_DIR || defaultUploadDir;
+
+let UPLOAD_DIR = (userConfig.savePath && fs.existsSync(userConfig.savePath))
+  ? userConfig.savePath
+  : (process.env.UPLOAD_DIR || defaultUploadDir);
+
+// Helper for standard OS preset directories
+function getPresetPaths() {
+  const home = os.homedir();
+  return {
+    submitt: path.join(home, 'Downloads', 'Submitt'),
+    downloads: path.join(home, 'Downloads'),
+    desktop: path.join(home, 'Desktop')
+  };
+}
 
 // Ensure upload directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Directory create notice:', e.message);
 }
 
 // Temporary store for Camera Beam transfers
@@ -288,6 +321,48 @@ app.get('/api/info', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Settings: Get destination path configuration
+app.get('/api/settings/path', (req, res) => {
+  res.json({
+    currentPath: UPLOAD_DIR,
+    isConfigured: !!userConfig.isConfigured,
+    presets: getPresetPaths(),
+    isCloud: !!(process.env.RENDER || process.env.RENDER_EXTERNAL_URL)
+  });
+});
+
+// Settings: Update destination path on PC
+app.post('/api/settings/path', (req, res) => {
+  let targetPath = (req.body.savePath || '').trim();
+  if (!targetPath) {
+    targetPath = path.join(os.homedir(), 'Downloads', 'Submitt');
+  }
+
+  try {
+    if (!fs.existsSync(targetPath)) {
+      fs.mkdirSync(targetPath, { recursive: true });
+    }
+
+    UPLOAD_DIR = targetPath;
+    userConfig.savePath = targetPath;
+    userConfig.isConfigured = true;
+
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(userConfig, null, 2), 'utf8');
+
+    console.log(`📂 Destination path updated to: ${UPLOAD_DIR}`);
+
+    // Broadcast update to all connected clients
+    broadcast({
+      type: 'path_updated',
+      newPath: UPLOAD_DIR
+    });
+
+    res.json({ success: true, savePath: UPLOAD_DIR });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 

@@ -788,6 +788,18 @@ body {
   background: #090c12;
 }
 
+#pathSetupModal .modal-body {
+  display: block;
+  min-height: auto;
+  background: transparent;
+}
+
+.preset-path-btn:hover {
+  border-color: var(--border-hover) !important;
+  background: #1a2232 !important;
+  color: #ffffff !important;
+}
+
 .modal-body img {
   max-width: 100%;
   max-height: 65vh;

@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="/css/style.css?v=10">
+  <link rel="stylesheet" href="/css/style.css?v=11">
 </head>
 <body>
   <!-- Sparkle Accent in bottom right -->
@@ -58,11 +58,19 @@
           Scan
         </button>
 
-        <button id="openFolderBtn" class="header-btn" title="Open Downloads folder in Windows Explorer">
+        <button id="openFolderBtn" class="header-btn" title="Open destination folder in Windows Explorer">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
-          Open Folder
+          Folder
+        </button>
+
+        <button id="folderSettingsBtn" class="header-btn" title="Change where files are saved on PC" style="background: rgba(37, 99, 235, 0.12); border-color: rgba(37, 99, 235, 0.35); color: #60a5fa;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span id="saveLocationBtnText">Save Location</span>
         </button>
       </div>
     </header>
@@ -186,6 +194,61 @@
     </main>
   </div>
 
+  <!-- Destination Folder Onboarding & Settings Modal -->
+  <div id="pathSetupModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px; border: 1px solid rgba(0, 150, 255, 0.35); box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 30px rgba(0, 150, 255, 0.15);">
+      <div class="modal-header" style="border-bottom: 1px solid var(--border-subtle); padding: 18px 22px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(37, 99, 235, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <img src="/logo-icon.png" alt="V-Share" style="width: 32px; height: 32px; object-fit: contain;">
+          </div>
+          <div>
+            <h3 class="modal-title" style="font-size: 17px; font-weight: 700; color: #ffffff;">Choose PC Save Location</h3>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 3px;">Where should files uploaded from mobile phones be saved?</p>
+          </div>
+        </div>
+        <button id="closePathSetupBtn" class="modal-close">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 22px;">
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 8px;">
+            Quick Presets:
+          </label>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            <button type="button" class="preset-path-btn" data-preset="submitt" style="padding: 9px 8px; border-radius: 8px; background: #141a24; border: 1px solid var(--border-subtle); color: #e2e8f0; font-size: 12px; font-weight: 500; cursor: pointer; text-align: center; transition: all 0.2s;">
+              📂 Submitt
+            </button>
+            <button type="button" class="preset-path-btn" data-preset="downloads" style="padding: 9px 8px; border-radius: 8px; background: #141a24; border: 1px solid var(--border-subtle); color: #e2e8f0; font-size: 12px; font-weight: 500; cursor: pointer; text-align: center; transition: all 0.2s;">
+              📥 Downloads
+            </button>
+            <button type="button" class="preset-path-btn" data-preset="desktop" style="padding: 9px 8px; border-radius: 8px; background: #141a24; border: 1px solid var(--border-subtle); color: #e2e8f0; font-size: 12px; font-weight: 500; cursor: pointer; text-align: center; transition: all 0.2s;">
+              🖥️ Desktop
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label for="customPathInput" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 8px;">
+            Target Folder Path on PC:
+          </label>
+          <input type="text" id="customPathInput" placeholder="C:\Users\...\Downloads\Submitt" style="width: 100%; padding: 12px 14px; background: #0a0d14; border: 1px solid var(--border-subtle); border-radius: 8px; color: #60a5fa; font-family: monospace; font-size: 13px; box-sizing: border-box; outline: none;">
+        </div>
+
+        <div style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.25); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+          💡 <b>First-Time Setup:</b> Any photos, videos, and documents sent from connected phones will automatically be saved to this folder on your computer.
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding: 16px 22px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="cancelPathBtn" class="header-btn" style="padding: 9px 18px;">Skip</button>
+        <button id="savePathBtn" class="header-btn" style="background: #2563eb; border-color: #2563eb; color: #ffffff; font-weight: 600; padding: 9px 24px;">
+          💾 Confirm Save Path
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Media Preview Modal -->
   <div id="previewModal" class="modal-overlay">
     <div class="modal-content">
@@ -208,6 +271,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/pc.js?v=10"></script>
+  <script src="/js/pc.js?v=11"></script>
 </body>
 </html>

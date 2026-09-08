@@ -574,6 +574,113 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // --- PC Destination Save Location Setup & Onboarding ---
+  const pathModal = document.getElementById('pathSetupModal');
+  const folderSettingsBtn = document.getElementById('folderSettingsBtn');
+  const closePathSetupBtn = document.getElementById('closePathSetupBtn');
+  const cancelPathBtn = document.getElementById('cancelPathBtn');
+  const savePathBtn = document.getElementById('savePathBtn');
+  const customPathInput = document.getElementById('customPathInput');
+  const saveLocationBtnText = document.getElementById('saveLocationBtnText');
+  const presetButtons = document.querySelectorAll('.preset-path-btn');
+
+  let pathConfig = null;
+
+  async function loadPathSettings(checkFirstTime = false) {
+    try {
+      const res = await fetch('/api/settings/path');
+      pathConfig = await res.json();
+
+      if (customPathInput && pathConfig.currentPath) {
+        customPathInput.value = pathConfig.currentPath;
+      }
+
+      if (saveLocationBtnText && pathConfig.currentPath) {
+        const parts = pathConfig.currentPath.split(/[\\/]/).filter(Boolean);
+        const folderName = parts.pop() || 'Submitt';
+        saveLocationBtnText.textContent = `Save: ${folderName}`;
+      }
+
+      // If user hasn't configured their path yet, show onboarding modal!
+      if (checkFirstTime && !pathConfig.isConfigured && !pathConfig.isCloud) {
+        setTimeout(openPathModal, 600);
+      }
+    } catch (e) {
+      console.warn('Path settings load notice:', e);
+    }
+  }
+
+  function openPathModal() {
+    if (!pathModal) return;
+    pathModal.classList.add('active');
+    if (customPathInput && pathConfig && pathConfig.currentPath) {
+      customPathInput.value = pathConfig.currentPath;
+    }
+  }
+
+  function closePathModal() {
+    if (!pathModal) return;
+    pathModal.classList.remove('active');
+  }
+
+  if (folderSettingsBtn) {
+    folderSettingsBtn.addEventListener('click', openPathModal);
+  }
+  if (closePathSetupBtn) {
+    closePathSetupBtn.addEventListener('click', closePathModal);
+  }
+  if (cancelPathBtn) {
+    cancelPathBtn.addEventListener('click', closePathModal);
+  }
+
+  presetButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const presetKey = btn.getAttribute('data-preset');
+      if (pathConfig && pathConfig.presets && pathConfig.presets[presetKey]) {
+        customPathInput.value = pathConfig.presets[presetKey];
+        presetButtons.forEach(b => {
+          b.style.borderColor = 'var(--border-subtle)';
+          b.style.background = '#141a24';
+          b.style.color = '#e2e8f0';
+        });
+        btn.style.borderColor = 'var(--accent-blue)';
+        btn.style.background = 'rgba(37, 99, 235, 0.2)';
+        btn.style.color = '#60a5fa';
+      }
+    });
+  });
+
+  if (savePathBtn) {
+    savePathBtn.addEventListener('click', async () => {
+      const chosenPath = (customPathInput.value || '').trim();
+      if (!chosenPath) {
+        showToast('Please specify a folder path', '⚠️');
+        return;
+      }
+      savePathBtn.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/settings/path', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ savePath: chosenPath })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`📁 Save location set to: ${data.savePath}`, '✅');
+          closePathModal();
+          await loadPathSettings(false);
+          await loadFiles();
+        } else {
+          showToast(`Failed: ${data.error}`, '❌');
+        }
+      } catch (err) {
+        showToast('Error saving path: ' + err.message, '❌');
+      } finally {
+        savePathBtn.textContent = '💾 Confirm Save Path';
+      }
+    });
+  }
+
   // Copy Mobile URL Button
   document.getElementById('copyUrlBtn').addEventListener('click', () => {
     const input = document.getElementById('mobileUrlInput');
@@ -705,6 +812,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (msg.type === 'file_deleted') {
           allFiles = allFiles.filter(f => f.name !== msg.name);
           renderFiles();
+        }
+
+        if (msg.type === 'path_updated') {
+          loadPathSettings(false);
+          loadFiles();
         }
 
         if (msg.type === 'clipboard_received') {
@@ -845,5 +957,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial Boot
   loadSystemInfo();
   loadFiles();
+  loadPathSettings(true);
   connectWebSocket();
 });
