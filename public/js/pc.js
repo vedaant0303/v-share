@@ -4,6 +4,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let allFiles = [];
   let currentFilter = 'all';
   let systemInfo = null;
+  let autoSaveToPc = localStorage.getItem('vshare_auto_save') !== 'false';
+
+  // Trigger direct browser download to PC Downloads folder
+  function triggerBrowserDownload(file) {
+    if (!file || !file.downloadUrl) return;
+    const a = document.createElement('a');
+    a.href = file.downloadUrl;
+    a.download = file.name;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 1000);
+    showToast(`💾 Saved "${file.name}" to PC Downloads!`, '📥');
+  }
 
   // Audio Chime Synthesizer
   function playNotificationChime() {
@@ -81,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch('/api/info');
       systemInfo = await res.json();
+      renderFiles();
 
       const qrImg = document.getElementById('qrImage');
       const mobileInput = document.getElementById('mobileUrlInput');
@@ -88,6 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       qrImg.src = systemInfo.qrDataUrl;
       mobileInput.value = systemInfo.mobileUrl;
+
+      // In Cloud mode, hide local tunnel button since it's already live globally
+      if (systemInfo.isCloud) {
+        const toggleTunnelBtn = document.getElementById('toggleTunnelBtn');
+        if (toggleTunnelBtn) toggleTunnelBtn.style.display = 'none';
+      }
 
       // Populate network interfaces selector
       ipSelector.innerHTML = '';
@@ -245,26 +266,46 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div class="file-actions-row">
-          <button class="card-action-btn" data-action="reveal" data-name="${encodeURIComponent(file.name)}" title="Show in Windows Explorer">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span>Folder</span>
-          </button>
-          <button class="card-action-btn" data-action="open" data-name="${encodeURIComponent(file.name)}" title="Open with default Windows app">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            <span>Open</span>
-          </button>
-          <button class="card-action-btn icon-only" data-action="send-mobile" data-name="${encodeURIComponent(file.name)}" title="Send to Mobile Phone">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-              <line x1="12" y1="18" x2="12.01" y2="18"></line>
-            </svg>
-          </button>
-          <a class="card-action-btn icon-only" href="${file.downloadUrl}" download="${file.name}" title="Download ${file.name}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          </a>
-          <button class="card-action-btn icon-only delete-btn" data-action="delete" data-name="${encodeURIComponent(file.name)}" title="Delete file">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
+          ${systemInfo && systemInfo.isCloud ? `
+            <a class="card-action-btn card-download-btn" href="${file.downloadUrl}" download="${file.name}" title="Download directly to PC Downloads folder">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Download</span>
+            </a>
+            <button class="card-action-btn" data-action="preview" data-name="${encodeURIComponent(file.name)}" title="Preview file">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <span>Preview</span>
+            </button>
+            <button class="card-action-btn icon-only" data-action="send-mobile" data-name="${encodeURIComponent(file.name)}" title="Send to Mobile Phone">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+              </svg>
+            </button>
+            <button class="card-action-btn icon-only delete-btn" data-action="delete" data-name="${encodeURIComponent(file.name)}" title="Delete file">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          ` : `
+            <button class="card-action-btn" data-action="reveal" data-name="${encodeURIComponent(file.name)}" title="Show in Windows Explorer">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span>Folder</span>
+            </button>
+            <button class="card-action-btn" data-action="open" data-name="${encodeURIComponent(file.name)}" title="Open with default Windows app">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              <span>Open</span>
+            </button>
+            <a class="card-action-btn card-download-btn icon-only" href="${file.downloadUrl}" download="${file.name}" title="Download to PC">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </a>
+            <button class="card-action-btn icon-only" data-action="send-mobile" data-name="${encodeURIComponent(file.name)}" title="Send to Mobile Phone">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+              </svg>
+            </button>
+            <button class="card-action-btn icon-only delete-btn" data-action="delete" data-name="${encodeURIComponent(file.name)}" title="Delete file">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          `}
         </div>
       `;
 
@@ -371,6 +412,14 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
+    if (systemInfo && systemInfo.isCloud) {
+      modalOpenInAppBtn.style.display = 'none';
+      modalRevealBtn.style.display = 'none';
+    } else {
+      modalOpenInAppBtn.style.display = 'inline-flex';
+      modalRevealBtn.style.display = 'inline-flex';
+    }
+
     modal.classList.add('active');
   }
 
@@ -454,12 +503,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Auto-Save Toggle Setup
+  const autoSaveBtn = document.getElementById('autoSaveToggle');
+  const autoSaveText = document.getElementById('autoSaveText');
+  const autoSaveIcon = document.getElementById('autoSaveIcon');
+
+  function updateAutoSaveUi() {
+    if (!autoSaveBtn) return;
+    if (autoSaveToPc) {
+      autoSaveBtn.style.background = 'rgba(16, 185, 129, 0.15)';
+      autoSaveBtn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      autoSaveBtn.style.color = '#34d399';
+      if (autoSaveText) autoSaveText.textContent = 'Auto-Save: ON';
+      if (autoSaveIcon) autoSaveIcon.textContent = '⚡';
+    } else {
+      autoSaveBtn.style.background = '#151a24';
+      autoSaveBtn.style.borderColor = 'var(--border-subtle)';
+      autoSaveBtn.style.color = '#94a3b8';
+      if (autoSaveText) autoSaveText.textContent = 'Auto-Save: OFF';
+      if (autoSaveIcon) autoSaveIcon.textContent = '⏸️';
+    }
+  }
+
+  if (autoSaveBtn) {
+    updateAutoSaveUi();
+    autoSaveBtn.addEventListener('click', () => {
+      autoSaveToPc = !autoSaveToPc;
+      localStorage.setItem('vshare_auto_save', autoSaveToPc ? 'true' : 'false');
+      updateAutoSaveUi();
+      showToast(autoSaveToPc ? '⚡ Auto-Save enabled: Files automatically download to PC!' : '⏸️ Auto-Save paused: Click Download on files manually', autoSaveToPc ? '📥' : 'ℹ️');
+    });
+  }
+
+  // Download All Files Button
+  const downloadAllBtn = document.getElementById('downloadAllBtn');
+  if (downloadAllBtn) {
+    downloadAllBtn.addEventListener('click', () => {
+      if (!allFiles || allFiles.length === 0) {
+        showToast('No files received to download yet', 'ℹ️');
+        return;
+      }
+      showToast(`Downloading ${allFiles.length} file(s) to PC Downloads...`, '📥');
+      allFiles.forEach((file, index) => {
+        setTimeout(() => {
+          triggerBrowserDownload(file);
+        }, index * 350);
+      });
+    });
+  }
+
+  // Open Folder Handler
   document.getElementById('openFolderBtn').addEventListener('click', async () => {
+    if (systemInfo && systemInfo.isCloud) {
+      showToast('📂 Cloud Mode: Incoming files are saved into your PC Downloads folder!', '📥');
+      if (allFiles.length > 0) {
+        triggerBrowserDownload(allFiles[0]);
+      }
+      return;
+    }
     try {
-      await fetch('/api/open-folder', { method: 'POST' });
-      showToast('Opened Submitt folder in Explorer', '📂');
+      const res = await fetch('/api/open-folder', { method: 'POST' });
+      const data = await res.json();
+      if (data && data.success) {
+        showToast('Opened Submitt folder in Explorer', '📂');
+      } else {
+        showToast('📂 Files are saved in your PC Downloads folder', '📥');
+      }
     } catch (err) {
-      console.error(err);
+      showToast('📂 Files are saved in your PC Downloads folder', '📥');
     }
   });
 
@@ -584,6 +695,11 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`Received: ${msg.file.name}`, '🎉');
           allFiles.unshift(msg.file);
           renderFiles();
+
+          // Automatically save file to PC Downloads folder
+          if (autoSaveToPc && msg.file) {
+            triggerBrowserDownload(msg.file);
+          }
         }
 
         if (msg.type === 'file_deleted') {

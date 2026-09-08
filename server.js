@@ -283,6 +283,7 @@ app.get('/api/info', async (req, res) => {
       tunnelActive: !!activeTunnelUrl,
       tunnelUrl: activeTunnelUrl,
       uploadDirectory: UPLOAD_DIR,
+      isCloud: !!(process.env.RENDER || process.env.RENDER_EXTERNAL_URL),
       connectedClients: clients.size
     });
   } catch (err) {

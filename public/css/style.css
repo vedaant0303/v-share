@@ -562,14 +562,15 @@ body {
 
 /* Card Buttons Row */
 .file-actions-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 28px 28px 28px;
+  display: flex;
   gap: 4px;
   width: 100%;
   box-sizing: border-box;
 }
 
 .card-action-btn {
+  flex: 1;
+  min-width: 0;
   padding: 5px 2px;
   border-radius: 6px;
   background: #0d121b;
@@ -595,7 +596,22 @@ body {
   color: #ffffff;
 }
 
+.card-action-btn.card-download-btn {
+  background: rgba(37, 99, 235, 0.18);
+  border-color: rgba(37, 99, 235, 0.4);
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.card-action-btn.card-download-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
 .card-action-btn.icon-only {
+  flex: 0 0 28px;
+  width: 28px;
   padding: 0;
 }
 
