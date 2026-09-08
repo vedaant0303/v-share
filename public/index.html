@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>V-Share</title>
+  <meta name="description" content="Instantly drop files, videos, documents, and images between mobile and PC over local Wi-Fi.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/css/style.css?v=8">
+</head>
+<body>
+  <!-- Sparkle Accent in bottom right -->
+  <div class="sparkle-accent" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z"/>
+    </svg>
+  </div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <img src="/logo-icon.png" alt="V-Share" class="brand-icon-img" style="height: 54px; width: 54px; object-fit: contain; filter: drop-shadow(0 4px 14px rgba(0, 150, 255, 0.45)); transition: transform 0.2s ease;">
+      </div>
+
+      <div class="header-actions">
+        <div id="connectionStatus" class="status-pill">
+          <span class="status-dot"></span>
+          <span id="statusText">Connections: Ready</span>
+        </div>
+
+        <button id="toggleCameraScannerBtn" class="header-btn" title="Hold mobile phone screen facing PC camera to drop file">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Scan
+        </button>
+
+        <button id="openFolderBtn" class="header-btn" title="Open C:\Users\hp\Downloads\Submitt in Windows Explorer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          Open Folder
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <main class="dashboard-grid">
+      <!-- Left Column: Connect Device Card -->
+      <section class="sidebar-column">
+        <div class="card connect-card">
+          <h2 class="connect-card-title">Connect Device</h2>
+
+          <div class="qr-wrapper">
+            <img id="qrImage" src="" alt="Scan QR Code to Connect">
+          </div>
+
+          <div class="url-capsule">
+            <input type="text" id="mobileUrlInput" readonly value="Loading..." />
+            <button id="copyUrlBtn" title="Copy URL">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label for="ipSelector" class="form-label">Network Address:</label>
+            <div class="select-wrapper">
+              <select id="ipSelector" class="select-dropdown"></select>
+            </div>
+          </div>
+
+          <button id="toggleTunnelBtn" type="button" class="btn-download-app" style="background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.35); color: #60a5fa; margin-bottom: 10px; width: 100%; justify-content: center; cursor: pointer; text-decoration: none;">
+            <span id="tunnelIcon">🌐</span>
+            <span id="toggleTunnelText">Enable Public Internet Link</span>
+          </button>
+
+          <a href="/V-Share.apk" download class="btn-download-app" title="Install V-Share Android Native App">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003 0-.5511.4482-1.0003.9993-1.0003.5516 0 .9997.4492.9997 1.0003 0 .5517-.4481 1.0003-.9997 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003 0-.5511.4482-1.0003.9993-1.0003.5516 0 .9997.4492.9997 1.0003 0 .5517-.4481 1.0003-.9997 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5682.1522L17.135 8.941c-1.503-.6873-3.2185-1.0827-5.135-1.0827-1.9165 0-3.632.3954-5.135 1.0827L4.8415 5.4468a.416.416 0 00-.5682-.1522.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+            </svg>
+            <span>Download V-Share App</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Right Column: Drop Zone & Received Files -->
+      <section class="main-column">
+        <!-- PC Camera Tap Scanner Card (Toggled via Scan button) -->
+        <div id="scannerCard" class="scanner-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">📷</span>
+              <h3 style="font-size: 15px; font-weight: 600;">Camera Tap Scanner</h3>
+            </div>
+            <button id="closeScannerBtn" class="modal-close">&times;</button>
+          </div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            Open document on phone &bull; Tap "Beam to PC" &bull; Hold phone screen in front of PC camera!
+          </p>
+          <div class="scanner-viewport">
+            <video id="scannerVideo" playsinline autoplay muted></video>
+            <canvas id="scannerCanvas" style="display: none;"></canvas>
+            <div class="scanner-reticle">
+              <div class="scanner-laser"></div>
+            </div>
+          </div>
+          <div id="scannerFeedback" style="text-align: center; font-size: 12.5px; color: var(--accent-cyan); font-weight: 500;">
+            Looking for mobile phone screen...
+          </div>
+        </div>
+
+        <!-- Real-Time Upload Progress Card -->
+        <div id="uploadProgressCard" class="upload-progress-card">
+          <div class="progress-header">
+            <span id="uploadStatusText">Uploading files...</span>
+            <span id="uploadPercentText">0%</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="progressBarFill" class="progress-bar-fill"></div>
+          </div>
+        </div>
+
+        <!-- Drop or Browse Top Zone (Send to Mobile) -->
+        <div id="dropZone" class="drop-zone" title="Drop or click to send files directly to your mobile phone">
+          <input type="file" id="filePicker" multiple style="display: none;">
+          <svg class="drop-icon-svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+          </svg>
+          <div class="drop-zone-text">Drop or Browse to Send to Mobile</div>
+        </div>
+
+        <!-- Received Files Card -->
+        <div class="files-card">
+          <div class="files-header">
+            <div class="files-title-wrap">
+              <h2 class="files-title">Received Files</h2>
+              <span id="fileCountBadge" class="count-badge">0 files</span>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+              <button class="filter-tab active" data-filter="all">All</button>
+              <button class="filter-tab" data-filter="image">Images</button>
+              <button class="filter-tab" data-filter="video">Videos</button>
+              <button class="filter-tab" data-filter="document">Docs</button>
+              <button class="filter-tab" data-filter="audio">Audio</button>
+            </div>
+          </div>
+
+          <!-- Files Grid -->
+          <div id="fileGrid" class="file-grid">
+            <div class="empty-state">
+              <div class="empty-state-icon">📱 ➡️ 💻</div>
+              <h3>No files received yet</h3>
+              <p>Scan the QR code on your mobile phone or drop files here!</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Media Preview Modal -->
+  <div id="previewModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalFilename" class="modal-title">File Preview</h3>
+        <button id="modalCloseBtn" class="modal-close">&times;</button>
+      </div>
+      <div id="modalBody" class="modal-body">
+        <!-- Injected dynamically: image, video, audio, or iframe -->
+      </div>
+      <div class="modal-footer">
+        <button id="modalOpenInAppBtn" class="header-btn">🚀 Open in Default App</button>
+        <button id="modalRevealBtn" class="header-btn">📂 Show in Explorer</button>
+        <a id="modalDownloadBtn" class="header-btn" style="background: var(--accent-blue); border-color: var(--accent-blue);" download>⬇️ Download</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/js/jsQR.js"></script>
+  <script src="/js/pc.js?v=6"></script>
+</body>
+</html>

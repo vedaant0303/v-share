@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Local binaries & logs
+cloudflared.exe
+*.log
+uploads/
+Received_Files/
+test_upload.js
+
+# IDE & OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Android build artifacts
+android-app/build/
+android-app/.gradle/
+android-app/local.properties

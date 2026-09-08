@@ -1,0 +1,825 @@
+// DropFile Mobile Client Controller
+function initMobileApp() {
+  let ws;
+  let transferredFiles = [];
+  let receivedFromPcFiles = [];
+  try {
+    const stored = localStorage.getItem('dropfile_received_from_pc');
+    if (stored) {
+      receivedFromPcFiles = JSON.parse(stored);
+    }
+  } catch (e) {}
+  const toastContainer = document.getElementById('toastContainer');
+
+  // Synthesized notification chime for mobile
+  function playSuccessChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.15); // G5
+
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+
+      // Tactile haptic feedback if supported
+      if (navigator.vibrate) {
+        navigator.vibrate([40, 60, 40]);
+      }
+    } catch (e) {
+      console.warn('Audio chime error:', e);
+    }
+  }
+
+  function showToast(message, icon = '⚡') {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(20px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function setConnected(isConnected) {
+    const pill = document.getElementById('mobileStatusPill');
+    const text = document.getElementById('mobileStatusText');
+    if (!pill || !text) return;
+    if (isConnected) {
+      pill.style.background = 'rgba(16, 185, 129, 0.15)';
+      pill.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+      pill.style.color = '#34d399';
+      text.textContent = 'Connected to PC';
+    } else {
+      pill.style.background = 'rgba(239, 68, 68, 0.15)';
+      pill.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+      pill.style.color = '#f87171';
+      text.textContent = 'Disconnected';
+    }
+  }
+
+  // Immediate HTTP Ping to verify server reachability instantly
+  async function checkServerHealth() {
+    try {
+      const res = await fetch('/api/info', { cache: 'no-cache' });
+      if (res.ok) {
+        setConnected(true);
+      }
+    } catch (err) {
+      setConnected(false);
+    }
+  }
+
+  // WebSocket for Live PC Status
+  function connectWebSocket() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    try {
+      ws = new WebSocket(`${protocol}//${location.host}`);
+
+      ws.onopen = () => {
+        setConnected(true);
+      };
+
+      ws.onclose = () => {
+        // Double check via HTTP before declaring disconnected
+        checkServerHealth();
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = () => {
+        checkServerHealth();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'clipboard_received' && msg.from === 'PC') {
+            playSuccessChime();
+            showToast(`PC sent: "${msg.text.substring(0, 30)}..."`, '💻');
+          }
+          if (msg.type === 'beam_claimed') {
+            if (msg.token === activeBeamToken || activeBeamToken) {
+              handleBeamSuccess(msg.file);
+            }
+          }
+          if (msg.type === 'file_for_mobile' || (msg.type === 'file_received' && msg.sender === 'PC')) {
+            handleIncomingFileFromPc(msg.file);
+          }
+        } catch (err) {}
+      };
+    } catch (e) {
+      checkServerHealth();
+    }
+  }
+
+  // File Upload Logic
+  const mobileDropCard = document.getElementById('mobileDropCard');
+  const generalFilePicker = document.getElementById('generalFilePicker');
+  const cameraPicker = document.getElementById('cameraPicker');
+  const mediaPicker = document.getElementById('mediaPicker');
+
+  const galleryBtn = document.getElementById('galleryBtn');
+  const docsBtn = document.getElementById('docsBtn');
+  const syncTabBtn = document.getElementById('syncTabBtn');
+  const textSyncSection = document.getElementById('textSyncSection');
+
+  // Triggers with null checks
+  if (mobileDropCard && mediaPicker) mobileDropCard.addEventListener('click', () => mediaPicker.click());
+  if (galleryBtn && mediaPicker) galleryBtn.addEventListener('click', () => mediaPicker.click());
+  if (docsBtn && generalFilePicker) docsBtn.addEventListener('click', () => generalFilePicker.click());
+
+  if (syncTabBtn && textSyncSection) {
+    syncTabBtn.addEventListener('click', () => {
+      if (textSyncSection.style.display === 'none') {
+        textSyncSection.style.display = 'block';
+        textSyncSection.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        textSyncSection.style.display = 'none';
+      }
+    });
+  }
+
+  [generalFilePicker, cameraPicker, mediaPicker].forEach(picker => {
+    if (picker) {
+      picker.addEventListener('change', () => {
+        if (picker.files && picker.files.length > 0) {
+          uploadFiles(picker.files);
+          picker.value = '';
+        }
+      });
+    }
+  });
+
+  // Mobile Drag and Drop
+  ['dragenter', 'dragover'].forEach(name => {
+    mobileDropCard.addEventListener(name, (e) => {
+      e.preventDefault();
+      mobileDropCard.style.borderColor = 'var(--accent-cyan)';
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(name => {
+    mobileDropCard.addEventListener(name, (e) => {
+      e.preventDefault();
+      mobileDropCard.style.borderColor = 'rgba(0, 242, 254, 0.4)';
+    });
+  });
+
+  mobileDropCard.addEventListener('drop', (e) => {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      uploadFiles(e.dataTransfer.files);
+    }
+  });
+
+  // Upload function with live speed and progress
+  function uploadFiles(files) {
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i]);
+    }
+
+    const progressCard = document.getElementById('mobileUploadProgressCard');
+    const progressBar = document.getElementById('mobileProgressBarFill');
+    const percentText = document.getElementById('mobileUploadPercent');
+    const statusText = document.getElementById('mobileUploadStatus');
+    const speedText = document.getElementById('mobileUploadSpeed');
+
+    progressCard.style.display = 'block';
+    progressBar.style.width = '0%';
+    percentText.textContent = '0%';
+    statusText.textContent = `Sending ${files.length} file${files.length === 1 ? '' : 's'} to PC...`;
+    speedText.textContent = 'Calculating speed...';
+
+    const startTime = Date.now();
+    let lastLoaded = 0;
+    let lastTime = startTime;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload', true);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        progressBar.style.width = `${percent}%`;
+        percentText.textContent = `${percent}%`;
+
+        // Calculate upload speed
+        const now = Date.now();
+        const timeDiff = (now - lastTime) / 1000;
+        if (timeDiff >= 0.5) {
+          const bytesDiff = e.loaded - lastLoaded;
+          const speed = bytesDiff / timeDiff; // bytes per second
+          speedText.textContent = `${formatBytes(speed)}/s &bull; ${formatBytes(e.loaded)} of ${formatBytes(e.total)}`;
+          lastLoaded = e.loaded;
+          lastTime = now;
+        }
+      }
+    };
+
+    xhr.onload = () => {
+      progressCard.style.display = 'none';
+      if (xhr.status === 200) {
+        playSuccessChime();
+        showToast('Successfully transferred to PC!', '🎉');
+        try {
+          const res = JSON.parse(xhr.responseText);
+          if (res.files && res.files.length > 0) {
+            res.files.forEach(f => transferredFiles.unshift(f));
+            renderTransferHistory();
+          }
+        } catch (e) {}
+      } else {
+        showToast('Transfer failed. Please check PC connection.', '❌');
+      }
+    };
+
+    xhr.onerror = () => {
+      progressCard.style.display = 'none';
+      showToast('Network error during transfer', '❌');
+    };
+
+    xhr.send(formData);
+  }
+
+  // Render Transfer History
+  function renderTransferHistory() {
+    const list = document.getElementById('transferList');
+    const count = document.getElementById('transferCount');
+
+    count.textContent = `${transferredFiles.length} item${transferredFiles.length === 1 ? '' : 's'}`;
+
+    if (transferredFiles.length === 0) {
+      list.innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">
+          No files dropped yet in this session
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = '';
+    transferredFiles.forEach(file => {
+      const item = document.createElement('div');
+      item.className = 'transfer-queue-item';
+      item.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+          <span style="font-size: 18px;">${file.category === 'image' ? '🖼️' : file.category === 'video' ? '🎬' : '📄'}</span>
+          <div style="min-width: 0;">
+            <div class="transfer-queue-name" title="${file.name}">${file.name}</div>
+            <div style="font-size: 11px; color: #64748b;">${formatBytes(file.size)}</div>
+          </div>
+        </div>
+        <span class="transfer-status-done">✓ Delivered</span>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  // --- PC-to-Mobile Receiving & Auto-Download Logic ---
+  const incomingModal = document.getElementById('incomingModal');
+  const closeIncomingModal = document.getElementById('closeIncomingModal');
+  const incomingFileName = document.getElementById('incomingFileName');
+  const incomingFileSize = document.getElementById('incomingFileSize');
+  const incomingDownloadBtn = document.getElementById('incomingDownloadBtn');
+  const incomingPreviewBtn = document.getElementById('incomingPreviewBtn');
+  const autoDownloadToggle = document.getElementById('autoDownloadToggle');
+
+  function handleIncomingFileFromPc(file) {
+    playSuccessChime();
+    
+    // Deduplicate and persist to localStorage
+    receivedFromPcFiles = receivedFromPcFiles.filter(f => f.name !== file.name);
+    receivedFromPcFiles.unshift(file);
+    if (receivedFromPcFiles.length > 50) receivedFromPcFiles.pop();
+    try {
+      localStorage.setItem('dropfile_received_from_pc', JSON.stringify(receivedFromPcFiles));
+    } catch (e) {}
+
+    renderReceivedFromPc();
+    updatePcFilesBadge();
+
+    // Populate modal
+    if (incomingFileName) incomingFileName.textContent = file.name;
+    if (incomingFileSize) incomingFileSize.textContent = formatBytes(file.size);
+    if (incomingDownloadBtn) {
+      incomingDownloadBtn.href = file.downloadUrl;
+      incomingDownloadBtn.setAttribute('download', file.name);
+    }
+    if (incomingPreviewBtn) incomingPreviewBtn.href = file.previewUrl;
+    if (incomingModal) incomingModal.classList.add('active');
+
+    // Check if Auto-Download is enabled
+    const isAuto = autoDownloadToggle ? autoDownloadToggle.checked : true;
+    if (isAuto) {
+      triggerFileDownload(file);
+    } else {
+      showToast(`Received "${file.name}" from PC!`, '📥');
+    }
+  }
+
+  function getMimeType(filename) {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    if (['jpg', 'jpeg'].includes(ext)) return 'image/jpeg';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'webp') return 'image/webp';
+    if (ext === 'gif') return 'image/gif';
+    if (ext === 'mp4') return 'video/mp4';
+    if (ext === 'mov') return 'video/quicktime';
+    if (ext === 'mp3') return 'audio/mpeg';
+    if (ext === 'pdf') return 'application/pdf';
+    if (['doc', 'docx'].includes(ext)) return 'application/msword';
+    return 'application/octet-stream';
+  }
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  function triggerFileDownload(file) {
+    // If running inside Android Native App with AndroidHost bridge
+    if (window.AndroidHost && window.AndroidHost.downloadFile) {
+      window.AndroidHost.downloadFile(file.downloadUrl, file.name, getMimeType(file.name));
+      showToast(`Downloading "${file.name}" to phone...`, '📥');
+      return;
+    }
+
+    // iOS Safari trigger: direct navigation to attachment endpoint
+    if (isIOS) {
+      window.location.href = file.downloadUrl;
+      showToast(`Saving "${file.name}"...`, '📥');
+      return;
+    }
+
+    // Standard browser download trigger
+    try {
+      const downloadLink = document.createElement('a');
+      downloadLink.href = file.downloadUrl;
+      downloadLink.download = file.name;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      showToast(`Saving "${file.name}" to Downloads...`, '📥');
+    } catch (err) {
+      window.location.href = file.downloadUrl;
+    }
+  }
+
+  function openFileInViewer(file) {
+    // If running inside Android Native App with AndroidHost bridge
+    if (window.AndroidHost && window.AndroidHost.openExternal) {
+      const fullUrl = location.origin + file.previewUrl;
+      window.AndroidHost.openExternal(fullUrl, getMimeType(file.name));
+      return;
+    }
+
+    // Fallback: window.open or navigate
+    window.open(file.previewUrl, '_blank');
+  }
+
+  // Media Preview Modal Logic
+  const previewModal = document.getElementById('previewModal');
+  const modalFilename = document.getElementById('modalFilename');
+  const modalBody = document.getElementById('modalBody');
+  const modalCloseBtn = document.getElementById('modalCloseBtn');
+  const modalOpenInAppBtn = document.getElementById('modalOpenInAppBtn');
+  const modalDownloadBtn = document.getElementById('modalDownloadBtn');
+  let currentPreviewFile = null;
+
+  function openPreviewModal(file) {
+    currentPreviewFile = file;
+    if (modalFilename) modalFilename.textContent = file.name;
+    if (modalBody) {
+      modalBody.innerHTML = '';
+      if (file.category === 'image') {
+        modalBody.innerHTML = `<img src="${file.previewUrl}" alt="${file.name}" style="max-width:100%; max-height:55vh; border-radius:8px; object-fit:contain;" />`;
+      } else if (file.category === 'video') {
+        modalBody.innerHTML = `<video src="${file.previewUrl}" controls autoplay style="width:100%; max-height:55vh; border-radius:8px;"></video>`;
+      } else if (file.category === 'audio') {
+        modalBody.innerHTML = `
+          <div style="text-align:center; padding: 24px;">
+            <div style="font-size: 48px; margin-bottom: 12px;">🎵</div>
+            <audio src="${file.previewUrl}" controls autoplay style="width:100%;"></audio>
+          </div>
+        `;
+      } else {
+        modalBody.innerHTML = `
+          <div style="text-align:center; padding: 24px 10px;">
+            <div style="font-size: 48px; margin-bottom: 8px;">📄</div>
+            <div style="font-weight:600; font-size:14px; color:#fff; word-break:break-all;">${file.name}</div>
+            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">${formatBytes(file.size)}</div>
+            <p style="font-size:12px; color:#64748b; margin-top:14px;">Tap "Open in App" to view in your phone reader</p>
+          </div>
+        `;
+      }
+    }
+
+    if (modalOpenInAppBtn) {
+      modalOpenInAppBtn.onclick = () => openFileInViewer(file);
+    }
+    if (modalDownloadBtn) {
+      modalDownloadBtn.onclick = () => triggerFileDownload(file);
+    }
+    if (previewModal) previewModal.classList.add('active');
+  }
+
+  if (modalCloseBtn && previewModal) {
+    modalCloseBtn.addEventListener('click', () => previewModal.classList.remove('active'));
+    previewModal.addEventListener('click', (e) => {
+      if (e.target === previewModal) previewModal.classList.remove('active');
+    });
+  }
+
+  if (closeIncomingModal && incomingModal) {
+    closeIncomingModal.addEventListener('click', () => {
+      incomingModal.classList.remove('active');
+    });
+    incomingModal.addEventListener('click', (e) => {
+      if (e.target === incomingModal) incomingModal.classList.remove('active');
+    });
+  }
+
+  // Render Files Received from PC
+  function renderReceivedFromPc() {
+    const list = document.getElementById('receivedFromPcList');
+    const count = document.getElementById('receivedFromPcCount');
+    if (!list || !count) return;
+
+    count.textContent = `${receivedFromPcFiles.length} file${receivedFromPcFiles.length === 1 ? '' : 's'}`;
+
+    if (receivedFromPcFiles.length === 0) {
+      list.innerHTML = `
+        <div style="text-align: center; color: #94a3b8; font-size: 12.5px; padding: 16px 12px; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.08);">
+          <div style="font-size: 26px; margin-bottom: 6px;">💻 ➡️ 📱</div>
+          <div style="color: #f1f5f9; font-weight: 600; font-size: 13px; margin-bottom: 4px;">No files beamed from PC yet</div>
+          <div style="color: #64748b; font-size: 11.5px; line-height: 1.45; margin-bottom: 12px;">
+            Drop any file on your PC screen or click <b>📱</b> next to any file on PC to beam it here instantly.
+          </div>
+          <button id="quickViewPcFilesBtn" type="button" class="btn-get-app" style="width: auto; padding: 8px 16px; font-size: 12px; margin: 0 auto; display: inline-flex; align-items: center; gap: 6px;">
+            📂 Browse All Files on PC
+          </button>
+        </div>
+      `;
+      const quickBtn = document.getElementById('quickViewPcFilesBtn');
+      if (quickBtn) {
+        quickBtn.addEventListener('click', () => {
+          if (allPcFilesContainer) {
+            allPcFilesContainer.style.display = 'block';
+            if (pcFilesArrow) pcFilesArrow.textContent = '▲ Hide';
+            loadAllPcFiles();
+            allPcFilesContainer.scrollIntoView({ behavior: 'smooth' });
+          }
+        });
+      }
+      return;
+    }
+
+    list.innerHTML = '';
+    receivedFromPcFiles.forEach(file => {
+      const item = document.createElement('div');
+      item.className = 'transfer-queue-item';
+      item.style.cursor = 'pointer';
+      item.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1;">
+          <span style="font-size: 18px;">${file.category === 'image' ? '🖼️' : file.category === 'video' ? '🎬' : '📄'}</span>
+          <div style="min-width: 0;">
+            <div class="transfer-queue-name" title="${file.name}">${file.name}</div>
+            <div style="font-size: 11px; color: #64748b;">${formatBytes(file.size)}</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 5px; flex-shrink: 0;" onclick="event.stopPropagation();">
+          <button class="mobile-action-btn" data-action="open-rec" style="padding: 5px 9px; font-size: 11px;">
+            👁️ Open
+          </button>
+          <button class="btn-get-app" data-action="down-rec" style="padding: 5px 9px; font-size: 11px;">
+            ⬇️ Save
+          </button>
+        </div>
+      `;
+
+      item.addEventListener('click', () => openPreviewModal(file));
+      item.querySelector('[data-action="open-rec"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openPreviewModal(file);
+      });
+      item.querySelector('[data-action="down-rec"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerFileDownload(file);
+      });
+
+      list.appendChild(item);
+    });
+  }
+
+  // Browse All PC Files Accordion
+  const togglePcFilesBtn = document.getElementById('togglePcFilesBtn');
+  const allPcFilesContainer = document.getElementById('allPcFilesContainer');
+  const allPcFilesList = document.getElementById('allPcFilesList');
+  const pcFilesArrow = document.getElementById('pcFilesArrow');
+
+  if (togglePcFilesBtn && allPcFilesContainer) {
+    togglePcFilesBtn.addEventListener('click', async () => {
+      const isVisible = allPcFilesContainer.style.display === 'block';
+      if (isVisible) {
+        allPcFilesContainer.style.display = 'none';
+        if (pcFilesArrow) pcFilesArrow.textContent = '▼ Tap to View';
+      } else {
+        allPcFilesContainer.style.display = 'block';
+        if (pcFilesArrow) pcFilesArrow.textContent = '▲ Hide';
+        loadAllPcFiles();
+      }
+    });
+  }
+
+  async function loadAllPcFiles() {
+    if (!allPcFilesList) return;
+    allPcFilesList.innerHTML = '<div style="text-align: center; color: #64748b; font-size: 12px; padding: 12px 0;">Loading PC files...</div>';
+    try {
+      const res = await fetch('/api/files');
+      const data = await res.json();
+      const files = data.files || [];
+
+      if (files.length === 0) {
+        allPcFilesList.innerHTML = '<div style="text-align: center; color: #64748b; font-size: 12px; padding: 12px 0;">No files found on PC</div>';
+        return;
+      }
+
+      allPcFilesList.innerHTML = '';
+      files.forEach(file => {
+        const row = document.createElement('div');
+        row.className = 'transfer-queue-item';
+        row.style.cursor = 'pointer';
+        row.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+            <span style="font-size: 16px;">${file.category === 'image' ? '🖼️' : file.category === 'video' ? '🎬' : '📄'}</span>
+            <div style="min-width: 0;">
+              <div class="transfer-queue-name" style="font-size: 12px;" title="${file.name}">${file.name}</div>
+              <div style="font-size: 10.5px; color: #64748b;">${formatBytes(file.size)}</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 5px; flex-shrink: 0;" onclick="event.stopPropagation();">
+            <button class="mobile-action-btn" data-action="open-pc-file" style="padding: 5px 9px; font-size: 11px;">
+              👁️ Open
+            </button>
+            <button class="btn-get-app" data-action="down-pc-file" style="padding: 5px 9px; font-size: 11px;">
+              ⬇️ Save
+            </button>
+          </div>
+        `;
+
+        row.addEventListener('click', () => openPreviewModal(file));
+        row.querySelector('[data-action="open-pc-file"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openPreviewModal(file);
+        });
+        row.querySelector('[data-action="down-pc-file"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          triggerFileDownload(file);
+        });
+
+        allPcFilesList.appendChild(row);
+      });
+      const badge = document.getElementById('pcFilesCountBadge');
+      if (badge) badge.textContent = `${files.length} on PC`;
+    } catch (err) {
+      allPcFilesList.innerHTML = '<div style="text-align: center; color: #ef4444; font-size: 12px; padding: 12px 0;">Failed to load PC files</div>';
+    }
+  }
+
+  async function updatePcFilesBadge() {
+    const badge = document.getElementById('pcFilesCountBadge');
+    try {
+      const res = await fetch('/api/files');
+      const data = await res.json();
+      const count = (data.files || []).length;
+      if (badge) {
+        badge.textContent = `${count} on PC`;
+      }
+    } catch (e) {
+      if (badge) badge.textContent = 'PC Files';
+    }
+  }
+
+  // --- Camera Beam Flow ---
+  let activeBeamToken = null;
+  const beamDocBtn = document.getElementById('beamDocBtn');
+  const beamFilePicker = document.getElementById('beamFilePicker');
+  const beamModal = document.getElementById('beamModal');
+  const closeBeamModal = document.getElementById('closeBeamModal');
+  const beamFileName = document.getElementById('beamFileName');
+  const beamQrImage = document.getElementById('beamQrImage');
+  const beamInstantSendBtn = document.getElementById('beamInstantSendBtn');
+
+  if (beamDocBtn && beamFilePicker) {
+    beamDocBtn.addEventListener('click', () => beamFilePicker.click());
+
+    beamFilePicker.addEventListener('change', async () => {
+      if (beamFilePicker.files && beamFilePicker.files.length > 0) {
+        const file = beamFilePicker.files[0];
+        beamFilePicker.value = '';
+        await stageBeamFile(file);
+      }
+    });
+  }
+
+  async function stageBeamFile(file) {
+    showToast(`Staging "${file.name}" for Camera Tap...`, '📷');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/stage-beam', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        activeBeamToken = data.token;
+        beamFileName.textContent = data.fileName;
+        beamQrImage.src = data.qrUrl;
+        beamModal.classList.add('active');
+        playSuccessChime();
+        showToast('Hold this screen facing PC camera!', '💻');
+      } else {
+        showToast('Failed to stage document', '❌');
+      }
+    } catch (err) {
+      console.error('Error staging beam:', err);
+      showToast('Error preparing document', '❌');
+    }
+  }
+
+  function closeBeam() {
+    beamModal.classList.remove('active');
+    activeBeamToken = null;
+  }
+
+  closeBeamModal.addEventListener('click', closeBeam);
+
+  // Instant Wi-Fi Beam button in modal
+  beamInstantSendBtn.addEventListener('click', async () => {
+    if (!activeBeamToken) return;
+    try {
+      beamInstantSendBtn.textContent = 'Sending...';
+      const res = await fetch('/api/claim-beam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: activeBeamToken })
+      });
+      const data = await res.json();
+      beamInstantSendBtn.textContent = '⚡ Or Tap to Beam Instantly';
+      if (data.success) {
+        handleBeamSuccess(data.file);
+      }
+    } catch (err) {
+      beamInstantSendBtn.textContent = '⚡ Or Tap to Beam Instantly';
+    }
+  });
+
+  function handleBeamSuccess(file) {
+    playSuccessChime();
+    closeBeam();
+    showToast(`Delivered "${file.name}" to PC!`, '🎉');
+    transferredFiles.unshift(file);
+    renderTransferHistory();
+  }
+
+  // Handle WebSocket Beam notifications
+  const origOnMessage = ws ? ws.onmessage : null;
+
+  // Enhance WebSocket message listener
+  function setupEnhancedWs() {
+    if (!ws) return;
+    ws.addEventListener('message', (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'beam_claimed') {
+          if (msg.token === activeBeamToken || activeBeamToken) {
+            handleBeamSuccess(msg.file);
+          }
+        }
+      } catch (e) {}
+    });
+  }
+
+  // Send text to PC
+  document.getElementById('mobileSendTextBtn').addEventListener('click', () => {
+    const input = document.getElementById('mobileTextInput');
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'clipboard_share', text }));
+      input.value = '';
+      playSuccessChime();
+      showToast('Delivered to PC screen!', '💬');
+    } else {
+      showToast('Connecting to PC...', '⏳');
+    }
+  });
+
+  // --- PWA Installation Setup ---
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW register error', err));
+  }
+
+  let deferredPrompt;
+  const pwaBanner = document.getElementById('pwaBanner');
+  const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (pwaBanner) pwaBanner.style.display = 'flex';
+  });
+
+  if (pwaInstallBtn) {
+    pwaInstallBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          pwaBanner.style.display = 'none';
+        }
+        deferredPrompt = null;
+      }
+    });
+  }
+
+  // Device Detection: iOS vs Android promo display
+  const androidPromoCard = document.getElementById('androidPromoCard');
+  const iosPromoCard = document.getElementById('iosPromoCard');
+  const iosGuideModal = document.getElementById('iosGuideModal');
+  const closeIosGuideModal = document.getElementById('closeIosGuideModal');
+  const btnGotItIos = document.getElementById('btnGotItIos');
+
+  if (isIOS) {
+    if (androidPromoCard) androidPromoCard.style.display = 'none';
+    if (iosPromoCard) iosPromoCard.style.display = 'flex';
+  }
+
+  if (iosPromoCard) {
+    iosPromoCard.addEventListener('click', () => {
+      if (iosGuideModal) iosGuideModal.classList.add('active');
+    });
+  }
+
+  [closeIosGuideModal, btnGotItIos].forEach(btn => {
+    if (btn && iosGuideModal) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        iosGuideModal.classList.remove('active');
+      });
+    }
+  });
+
+  if (iosGuideModal) {
+    iosGuideModal.addEventListener('click', (e) => {
+      if (e.target === iosGuideModal) iosGuideModal.classList.remove('active');
+    });
+  }
+
+  // Check if opened after native share
+  if (window.location.search.includes('shared=success')) {
+    playSuccessChime();
+    showToast('🎉 Shared document uploaded to PC!', '✅');
+  }
+
+  // Initial render of received files and PC file count
+  renderReceivedFromPc();
+  updatePcFilesBadge();
+
+  // Check connection immediately via HTTP and start WebSocket
+  checkServerHealth();
+  connectWebSocket();
+  setupEnhancedWs();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMobileApp);
+} else {
+  initMobileApp();
+}
