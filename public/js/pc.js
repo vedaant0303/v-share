@@ -1120,6 +1120,8 @@ document.addEventListener('DOMContentLoaded', () => {
           playNotificationChime();
           showToast('📱 Phone requested Remote Desktop control!', '🖥️');
           if (!pcScreenStream) {
+            const promptModal = document.getElementById('pcRemoteRequestModal');
+            if (promptModal) promptModal.classList.add('active');
             startScreenShareHost(true);
           } else {
             setupPcPeerConnection();
@@ -1381,6 +1383,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (pcRemoteActiveBanner) pcRemoteActiveBanner.style.display = 'flex';
+      const promptModal = document.getElementById('pcRemoteRequestModal');
+      if (promptModal) promptModal.classList.remove('active');
       if (remoteBtnText) remoteBtnText.textContent = 'Stop Sharing';
       if (pcRemoteScreenBtn) {
         pcRemoteScreenBtn.style.background = 'rgba(239, 68, 68, 0.2)';
@@ -1471,6 +1475,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (stopPcRemoteBtn) {
     stopPcRemoteBtn.addEventListener('click', () => stopScreenShareHost());
+  }
+
+  const pcRemoteRequestModal = document.getElementById('pcRemoteRequestModal');
+  const acceptPcRemoteBtn = document.getElementById('acceptPcRemoteBtn');
+  const rejectPcRemoteBtn = document.getElementById('rejectPcRemoteBtn');
+
+  if (acceptPcRemoteBtn) {
+    acceptPcRemoteBtn.addEventListener('click', () => {
+      if (pcRemoteRequestModal) pcRemoteRequestModal.classList.remove('active');
+      startScreenShareHost();
+    });
+  }
+  if (rejectPcRemoteBtn) {
+    rejectPcRemoteBtn.addEventListener('click', () => {
+      if (pcRemoteRequestModal) pcRemoteRequestModal.classList.remove('active');
+    });
   }
 
   // Initial Boot

@@ -132,10 +132,22 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             public void setLandscape(boolean enable) {
                 runOnUiThread(() -> {
+                    View webHeader = findViewById(R.id.webHeader);
                     if (enable) {
                         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                        if (webHeader != null) webHeader.setVisibility(View.GONE);
+                        getWindow().getDecorView().setSystemUiVisibility(
+                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        );
                     } else {
                         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                        if (webHeader != null) webHeader.setVisibility(View.VISIBLE);
+                        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
                     }
                 });
             }
@@ -355,8 +367,16 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        View webHeader = findViewById(R.id.webHeader);
+        if (webHeader != null && webHeader.getVisibility() == View.GONE) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+            webHeader.setVisibility(View.VISIBLE);
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+            webView.evaluateJavascript("if (typeof closeRemoteDesktop === 'function') closeRemoteDesktop();", null);
+            return;
+        }
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-        if (webContainer.getVisibility() == View.VISIBLE) {
+        if (webContainer != null && webContainer.getVisibility() == View.VISIBLE) {
             if (webView.canGoBack()) {
                 webView.goBack();
             } else {

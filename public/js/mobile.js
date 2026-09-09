@@ -1367,10 +1367,26 @@ function initMobileApp() {
     }
   }
 
+  function primeRemoteVideoPlayback() {
+    if (remoteScreenVideo) {
+      remoteScreenVideo.muted = true;
+      remoteScreenVideo.defaultMuted = true;
+      remoteScreenVideo.playsInline = true;
+      remoteScreenVideo.setAttribute('playsinline', '');
+      remoteScreenVideo.setAttribute('webkit-playsinline', '');
+      remoteScreenVideo.setAttribute('muted', '');
+      try {
+        const p = remoteScreenVideo.play();
+        if (p !== undefined) p.catch(() => {});
+      } catch (e) {}
+    }
+  }
+
   function openRemoteDesktop() {
     if (remoteDesktopOverlay) {
       remoteDesktopOverlay.style.display = 'flex';
       remoteControlActive = true;
+      primeRemoteVideoPlayback();
 
       // Auto-switch to landscape mode in Android Native App & Web Browser
       if (window.AndroidHost && window.AndroidHost.setLandscape) {
@@ -1417,6 +1433,7 @@ function initMobileApp() {
   }
 
   function requestRemoteStart() {
+    primeRemoteVideoPlayback();
     if (remoteWaitingCard) remoteWaitingCard.style.display = 'flex';
     if (remoteWaitingTitle) remoteWaitingTitle.textContent = 'Connecting to PC Screen...';
     if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'Please click "Allow" on your PC screen when prompted.';
@@ -1446,7 +1463,30 @@ function initMobileApp() {
           remoteScreenStream = event.streams[0];
           if (remoteScreenVideo) {
             remoteScreenVideo.srcObject = remoteScreenStream;
-            remoteScreenVideo.play().catch(e => console.warn('Play video notice:', e));
+            remoteScreenVideo.muted = true;
+            remoteScreenVideo.defaultMuted = true;
+            remoteScreenVideo.playsInline = true;
+            remoteScreenVideo.setAttribute('playsinline', '');
+            remoteScreenVideo.setAttribute('webkit-playsinline', '');
+            remoteScreenVideo.setAttribute('muted', '');
+
+            const playStream = () => {
+              if (remoteScreenVideo.paused) {
+                const p = remoteScreenVideo.play();
+                if (p !== undefined) {
+                  p.then(() => {
+                    console.log('✅ Remote video playing smoothly');
+                  }).catch(e => {
+                    console.warn('Play attempt notice:', e);
+                  });
+                }
+              }
+            };
+
+            playStream();
+            remoteScreenVideo.onloadedmetadata = playStream;
+            remoteScreenVideo.oncanplay = playStream;
+            remoteScreenVideo.onloadeddata = playStream;
           }
           if (remoteWaitingCard) remoteWaitingCard.style.display = 'none';
           showToast('🟢 Fullscreen PC Touchscreen Active!', '🖥️');
@@ -1560,6 +1600,12 @@ function initMobileApp() {
       touchStartTime = Date.now();
       isDragging = false;
       isLongPressTriggered = false;
+
+      // Resume video playback if browser autoplay held it
+      if (remoteScreenVideo && (remoteScreenVideo.paused || remoteScreenVideo.ended)) {
+        remoteScreenVideo.muted = true;
+        remoteScreenVideo.play().catch(() => {});
+      }
 
       const count = e.touches.length;
 

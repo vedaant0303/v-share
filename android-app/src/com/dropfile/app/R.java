@@ -25,7 +25,8 @@ public final class R {
     public static final int shareStatus=0x7f020008;
     public static final int statusText=0x7f020009;
     public static final int webContainer=0x7f02000a;
-    public static final int webView=0x7f02000b;
+    public static final int webHeader=0x7f02000b;
+    public static final int webView=0x7f02000c;
   }
   public static final class layout {
     public static final int activity_main=0x7f030000;

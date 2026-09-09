@@ -370,10 +370,29 @@
     </div>
   </div>
 
+  <!-- Remote Screen Share Request Modal for PC -->
+  <div id="pcRemoteRequestModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 480px; width: 92%; text-align: center; border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 10px 40px rgba(168, 85, 247, 0.25);">
+      <div style="font-size: 52px; margin-bottom: 12px;">📱 🔗 🖥️</div>
+      <h3 style="font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 8px;">Phone Wants to View & Control PC</h3>
+      <p style="font-size: 13.5px; color: #94a3b8; line-height: 1.5; margin-bottom: 24px;">
+        Your connected phone requested Fullscreen Remote Touchscreen mode. Click below to share your screen so you can control this PC from your phone.
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="acceptPcRemoteBtn" style="background: linear-gradient(135deg, #a855f7 0%, #2563eb 100%); color: #fff; border: none; font-size: 14.5px; font-weight: 700; padding: 12px 26px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 18px rgba(168, 85, 247, 0.45);">
+          🖥️ Share Screen & Allow
+        </button>
+        <button id="rejectPcRemoteBtn" style="background: rgba(255,255,255,0.08); color: #94a3b8; border: 1px solid rgba(255,255,255,0.15); font-size: 14px; font-weight: 600; padding: 12px 20px; border-radius: 12px; cursor: pointer;">
+          Dismiss
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/pc.js?v=20"></script>
+  <script src="/js/pc.js?v=21"></script>
 </body>
 </html>
