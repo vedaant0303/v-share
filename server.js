@@ -116,6 +116,55 @@ function broadcastToRoom(roomId, data, excludeWs = null) {
   }
 }
 
+function broadcastToPc(roomId, data, excludeWs = null) {
+  const payload = JSON.stringify(data);
+  let sent = false;
+  if (roomId && rooms.has(roomId)) {
+    const room = rooms.get(roomId);
+    for (const pc of room.pcClients) {
+      if (pc !== excludeWs && pc.readyState === WebSocket.OPEN) {
+        pc.send(payload);
+        sent = true;
+      }
+    }
+  }
+  // Fallback: If room had no connected PC, broadcast to any active PC client or Cloud Bridge
+  if (!sent) {
+    for (const client of clients) {
+      if (client !== excludeWs && (client.role === 'pc' || client.isPcClient) && client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+        sent = true;
+      }
+    }
+  }
+  // Also pass to Cloud Bridge if active locally
+  if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN && activeCloudBridgeWs !== excludeWs) {
+    activeCloudBridgeWs.send(payload);
+  }
+}
+
+function broadcastToMobile(roomId, data, excludeWs = null) {
+  const payload = JSON.stringify(data);
+  let sent = false;
+  if (roomId && rooms.has(roomId)) {
+    const room = rooms.get(roomId);
+    for (const mob of room.mobileClients) {
+      if (mob !== excludeWs && mob.readyState === WebSocket.OPEN) {
+        mob.send(payload);
+        sent = true;
+      }
+    }
+  }
+  // Fallback: If room had no connected mobile, broadcast to any active mobile client
+  if (!sent) {
+    for (const client of clients) {
+      if (client !== excludeWs && (client.role === 'mobile' || client.isMobileClient) && client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
+    }
+  }
+}
+
 // Active Cloud Bridge WebSocket instance
 let activeCloudBridgeWs = null;
 
@@ -324,6 +373,9 @@ wss.on('connection', (ws, req) => {
   clients.add(ws);
   const userAgent = req.headers['user-agent'] || '';
   const isMobile = /mobile|iphone|android|ipad/i.test(userAgent);
+  ws.isMobileClient = isMobile;
+  ws.isPcClient = !isMobile;
+  ws.role = isMobile ? 'mobile' : 'pc';
   
   console.log(`[WS] ${isMobile ? '📱 Mobile Phone' : '💻 PC'} connected (Total: ${clients.size})`);
 
@@ -345,6 +397,8 @@ wss.on('connection', (ws, req) => {
 
         ws.roomId = roomId;
         ws.role = role;
+        ws.isPcClient = (role === 'pc');
+        ws.isMobileClient = (role === 'mobile');
         const room = getOrCreateRoom(roomId);
 
         if (role === 'pc') {
@@ -402,56 +456,61 @@ wss.on('connection', (ws, req) => {
       if (data.type === 'unattended_remote_start') {
         const targetRoom = data.roomId || ws.roomId;
         startUnattendedCapture(targetRoom);
-        if (targetRoom && rooms.has(targetRoom)) {
-          broadcastToRoom(targetRoom, data, ws);
-        } else {
-          broadcast(data, ws);
-        }
-        if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
-          activeCloudBridgeWs.send(JSON.stringify(data));
-        }
+        broadcastToPc(targetRoom, data, ws);
         return;
       }
 
       if (data.type === 'unattended_remote_stop') {
         stopUnattendedCapture();
         const targetRoom = data.roomId || ws.roomId;
-        if (targetRoom && rooms.has(targetRoom)) {
-          broadcastToRoom(targetRoom, data, ws);
-        } else {
-          broadcast(data, ws);
-        }
-        if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
-          activeCloudBridgeWs.send(JSON.stringify(data));
-        }
+        broadcastToPc(targetRoom, data, ws);
         return;
       }
 
       if (data.type === 'remote_frame') {
         const targetRoom = data.roomId || ws.roomId;
-        if (targetRoom && rooms.has(targetRoom)) {
-          broadcastToRoom(targetRoom, data, ws);
-        } else {
-          broadcast(data, ws);
-        }
+        broadcastToMobile(targetRoom, data, ws);
         return;
       }
 
-      if (data.type === 'remote_start_request' || data.type === 'remote_stop' ||
-          data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' ||
-          data.type === 'remote_input') {
-        if (data.type === 'remote_input') {
-          handleRemoteInputEvent(data);
-        }
-
+      if (data.type === 'remote_input') {
+        handleRemoteInputEvent(data);
         const targetRoom = data.roomId || ws.roomId;
-        if (targetRoom && rooms.has(targetRoom)) {
-          broadcastToRoom(targetRoom, data, ws);
+        broadcastToPc(targetRoom, data, ws);
+        return;
+      }
+
+      if (data.type === 'remote_start_request') {
+        const targetRoom = data.roomId || ws.roomId;
+        broadcastToPc(targetRoom, data, ws);
+        return;
+      }
+
+      if (data.type === 'remote_stop') {
+        const targetRoom = data.roomId || ws.roomId;
+        broadcastToPc(targetRoom, data, ws);
+        broadcastToMobile(targetRoom, data, ws);
+        return;
+      }
+
+      if (data.type === 'webrtc_offer') {
+        const targetRoom = data.roomId || ws.roomId;
+        broadcastToMobile(targetRoom, data, ws);
+        return;
+      }
+
+      if (data.type === 'webrtc_answer') {
+        const targetRoom = data.roomId || ws.roomId;
+        broadcastToPc(targetRoom, data, ws);
+        return;
+      }
+
+      if (data.type === 'webrtc_ice_candidate') {
+        const targetRoom = data.roomId || ws.roomId;
+        if (data.role === 'pc') {
+          broadcastToMobile(targetRoom, data, ws);
         } else {
-          broadcast(data, ws);
-        }
-        if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
-          activeCloudBridgeWs.send(JSON.stringify(data));
+          broadcastToPc(targetRoom, data, ws);
         }
         return;
       }
