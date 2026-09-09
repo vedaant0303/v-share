@@ -1081,4 +1081,89 @@ server.listen(PORT, '0.0.0.0', () => {
       });
     }, 10 * 60 * 1000); // 10 minutes (well before the 15-minute sleep threshold)
   }
+
+  // Automatic Cloud Bridge: When running on local PC, sync files dropped on Render Cloud directly to disk!
+  if (!process.env.RENDER && !process.env.RENDER_EXTERNAL_URL) {
+    function startCloudBridge() {
+      const cloudHost = 'v-share-o68m.onrender.com';
+      const cloudWsUrl = `wss://${cloudHost}`;
+      let bridgeWs;
+
+      try {
+        bridgeWs = new WebSocket(cloudWsUrl);
+      } catch (e) {
+        setTimeout(startCloudBridge, 8000);
+        return;
+      }
+
+      bridgeWs.on('open', async () => {
+        console.log('✅ [Cloud Bridge] Connected to live Render server!');
+        try {
+          const https = require('https');
+          const infoRes = await new Promise((resolve, reject) => {
+            https.get(`https://${cloudHost}/api/info`, (res) => {
+              let data = '';
+              res.on('data', c => data += c);
+              res.on('end', () => {
+                try { resolve(JSON.parse(data)); } catch (err) { reject(err); }
+              });
+            }).on('error', reject);
+          });
+
+          const cloudRoomId = userConfig.cloudRoomId || infoRes.roomId || infoRes.networkRoomCode;
+          if (cloudRoomId) {
+            bridgeWs.send(JSON.stringify({
+              type: 'join_room',
+              roomId: cloudRoomId,
+              role: 'pc'
+            }));
+            console.log(`🔗 [Cloud Bridge] Paired with Cloud Room ${cloudRoomId}. Incoming files will write directly to ${UPLOAD_DIR}`);
+          }
+        } catch (e) {
+          console.warn('[Cloud Bridge] Info notice:', e.message);
+        }
+      });
+
+      bridgeWs.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data);
+          if (msg.type === 'file_received' && msg.file && msg.file.downloadUrl) {
+            const fileName = msg.file.name;
+            const destPath = path.join(UPLOAD_DIR, fileName);
+            if (fs.existsSync(destPath)) {
+              return;
+            }
+
+            console.log(`📥 [Cloud Bridge] Receiving "${fileName}" from Cloud to ${destPath}...`);
+            const https = require('https');
+            const fileUrl = `https://${cloudHost}${msg.file.downloadUrl}`;
+            const fileStream = fs.createWriteStream(destPath);
+            https.get(fileUrl, (res) => {
+              res.pipe(fileStream);
+              fileStream.on('finish', () => {
+                console.log(`🎉 [Cloud Bridge] Successfully saved "${fileName}" directly to PC disk!`);
+                broadcast({
+                  type: 'file_received',
+                  file: msg.file,
+                  sender: 'Mobile'
+                });
+              });
+            }).on('error', (err) => {
+              console.error(`[Cloud Bridge] Error downloading "${fileName}":`, err.message);
+            });
+          }
+        } catch (err) {}
+      });
+
+      bridgeWs.on('close', () => {
+        setTimeout(startCloudBridge, 5000);
+      });
+
+      bridgeWs.on('error', () => {
+        bridgeWs.close();
+      });
+    }
+
+    setTimeout(startCloudBridge, 2000);
+  }
 });
