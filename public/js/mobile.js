@@ -1333,41 +1333,22 @@ function initMobileApp() {
     showToast('🎉 Shared document uploaded to PC!', '✅');
   }
 
-  // --- Remote PC Desktop Controller Logic ---
+  // --- Remote PC Desktop Pure Touchscreen Landscape Controller ---
   let mobilePeerConnection = null;
   let remoteScreenStream = null;
   let remoteControlActive = false;
-  let remoteMode = 'trackpad'; // 'trackpad' or 'direct'
-  let cursorX = 0.5;
-  let cursorY = 0.5;
 
   const remoteDesktopOverlay = document.getElementById('remoteDesktopOverlay');
   const openRemoteBtn = document.getElementById('openRemoteBtn');
   const remotePcPromoCard = document.getElementById('remotePcPromoCard');
   const closeRemoteOverlayBtn = document.getElementById('closeRemoteOverlayBtn');
   const remoteScreenVideo = document.getElementById('remoteScreenVideo');
+  const remoteVideoWrapper = document.getElementById('remoteVideoWrapper');
   const remoteTouchSurface = document.getElementById('remoteTouchSurface');
   const remoteWaitingCard = document.getElementById('remoteWaitingCard');
   const remoteWaitingTitle = document.getElementById('remoteWaitingTitle');
   const remoteWaitingMsg = document.getElementById('remoteWaitingMsg');
   const requestRemoteStartBtn = document.getElementById('requestRemoteStartBtn');
-
-  const toggleRemoteModeBtn = document.getElementById('toggleRemoteModeBtn');
-  const remoteModeIcon = document.getElementById('remoteModeIcon');
-  const remoteModeText = document.getElementById('remoteModeText');
-
-  const toggleRemoteKeyboardBtn = document.getElementById('toggleRemoteKeyboardBtn');
-  const remoteKeyboardDrawer = document.getElementById('remoteKeyboardDrawer');
-  const remoteTextInput = document.getElementById('remoteTextInput');
-  const sendRemoteTextBtn = document.getElementById('sendRemoteTextBtn');
-
-  const toggleQuickActionsBtn = document.getElementById('toggleQuickActionsBtn');
-  const remoteQuickDrawer = document.getElementById('remoteQuickDrawer');
-
-  const leftClickBtn = document.getElementById('leftClickBtn');
-  const rightClickBtn = document.getElementById('rightClickBtn');
-  const scrollUpBtn = document.getElementById('scrollUpBtn');
-  const scrollDownBtn = document.getElementById('scrollDownBtn');
 
   const rtcConfig = {
     iceServers: [
@@ -1390,6 +1371,17 @@ function initMobileApp() {
     if (remoteDesktopOverlay) {
       remoteDesktopOverlay.style.display = 'flex';
       remoteControlActive = true;
+
+      // Auto-switch to landscape mode in Android Native App & Web Browser
+      if (window.AndroidHost && window.AndroidHost.setLandscape) {
+        window.AndroidHost.setLandscape(true);
+      }
+      try {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      } catch (e) {}
+
       requestRemoteStart();
     }
   }
@@ -1398,6 +1390,17 @@ function initMobileApp() {
     if (remoteDesktopOverlay) {
       remoteDesktopOverlay.style.display = 'none';
       remoteControlActive = false;
+
+      // Restore portrait orientation in Android Native App & Web Browser
+      if (window.AndroidHost && window.AndroidHost.setLandscape) {
+        window.AndroidHost.setLandscape(false);
+      }
+      try {
+        if (screen.orientation && screen.orientation.unlock) {
+          screen.orientation.unlock();
+        }
+      } catch (e) {}
+
       if (remoteScreenStream) {
         remoteScreenStream.getTracks().forEach(t => t.stop());
         remoteScreenStream = null;
@@ -1446,7 +1449,7 @@ function initMobileApp() {
             remoteScreenVideo.play().catch(e => console.warn('Play video notice:', e));
           }
           if (remoteWaitingCard) remoteWaitingCard.style.display = 'none';
-          showToast('🟢 Connected to PC Screen!', '🖥️');
+          showToast('🟢 Fullscreen PC Touchscreen Active!', '🖥️');
         }
       };
 
@@ -1481,7 +1484,7 @@ function initMobileApp() {
       remoteWaitingCard.style.display = 'flex';
       if (remoteWaitingTitle) remoteWaitingTitle.textContent = 'Screen Share Ended';
       if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'PC has stopped sharing the screen.';
-      if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '🚀 Reconnect to PC Screen';
+      if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '🚀 Reconnect Fullscreen PC';
     }
     if (remoteScreenVideo) remoteScreenVideo.srcObject = null;
     if (mobilePeerConnection) {
@@ -1490,12 +1493,64 @@ function initMobileApp() {
     }
   }
 
-  // Touchpad Gestures on #remoteTouchSurface
+  // --- Accurate Touchscreen Mapping Helper ---
+  function getNormalizedTouchCoords(touch) {
+    if (!remoteScreenVideo) return { x: 0.5, y: 0.5 };
+    const rect = remoteTouchSurface.getBoundingClientRect();
+    const contW = rect.width || window.innerWidth;
+    const contH = rect.height || window.innerHeight;
+
+    const vidW = remoteScreenVideo.videoWidth || 1920;
+    const vidH = remoteScreenVideo.videoHeight || 1080;
+
+    const contAspect = contW / contH;
+    const vidAspect = vidW / vidH;
+
+    let renderedW, renderedH, offsetX, offsetY;
+
+    if (contAspect > vidAspect) {
+      renderedH = contH;
+      renderedW = contH * vidAspect;
+      offsetX = (contW - renderedW) / 2;
+      offsetY = 0;
+    } else {
+      renderedW = contW;
+      renderedH = contW / vidAspect;
+      offsetX = 0;
+      offsetY = (contH - renderedH) / 2;
+    }
+
+    const relX = touch.clientX - rect.left - offsetX;
+    const relY = touch.clientY - rect.top - offsetY;
+
+    const normX = Math.min(Math.max(relX / renderedW, 0), 1);
+    const normY = Math.min(Math.max(relY / renderedH, 0), 1);
+
+    return { x: normX, y: normY };
+  }
+
+  function showTouchRipple(clientX, clientY) {
+    if (!remoteTouchSurface) return;
+    const ripple = document.createElement('div');
+    ripple.className = 'touch-ripple';
+    ripple.style.left = `${clientX}px`;
+    ripple.style.top = `${clientY}px`;
+    remoteTouchSurface.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 400);
+  }
+
+  // --- Direct Touchscreen Interaction Logic ---
   let touchStartX = 0;
   let touchStartY = 0;
   let lastTouchX = 0;
   let lastTouchY = 0;
   let touchStartTime = 0;
+  let isDragging = false;
+  let longPressTimer = null;
+  let isLongPressTriggered = false;
+  let lastTapTime = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
   let lastScrollY = 0;
   let lastSendTime = 0;
 
@@ -1503,6 +1558,9 @@ function initMobileApp() {
     remoteTouchSurface.addEventListener('touchstart', (e) => {
       e.preventDefault();
       touchStartTime = Date.now();
+      isDragging = false;
+      isLongPressTriggered = false;
+
       const count = e.touches.length;
 
       if (count === 1) {
@@ -1512,13 +1570,23 @@ function initMobileApp() {
         lastTouchX = t.clientX;
         lastTouchY = t.clientY;
 
-        if (remoteMode === 'direct') {
-          const rect = remoteTouchSurface.getBoundingClientRect();
-          cursorX = Math.min(Math.max((t.clientX - rect.left) / rect.width, 0), 1);
-          cursorY = Math.min(Math.max((t.clientY - rect.top) / rect.height, 0), 1);
-          sendRemoteInput({ action: 'move', x: cursorX, y: cursorY });
-        }
+        const coords = getNormalizedTouchCoords(t);
+        showTouchRipple(t.clientX, t.clientY);
+
+        // Long press detection for Right Click (500ms)
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+          if (!isDragging) {
+            isLongPressTriggered = true;
+            if (navigator.vibrate) navigator.vibrate(40);
+            sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
+            sendRemoteInput({ action: 'click', button: 'right' });
+            showToast('Right Click 🖱️', '⚡');
+          }
+        }, 500);
+
       } else if (count === 2) {
+        clearTimeout(longPressTimer);
         lastScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       }
     }, { passive: false });
@@ -1530,34 +1598,28 @@ function initMobileApp() {
 
       if (count === 1) {
         const t = e.touches[0];
-        if (remoteMode === 'trackpad') {
-          const dx = t.clientX - lastTouchX;
-          const dy = t.clientY - lastTouchY;
-          lastTouchX = t.clientX;
-          lastTouchY = t.clientY;
+        const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
 
-          const sensitivity = 0.0019;
-          cursorX = Math.min(Math.max(cursorX + dx * sensitivity, 0), 1);
-          cursorY = Math.min(Math.max(cursorY + dy * sensitivity, 0), 1);
+        // If moved significantly, cancel long press and enter mouse drag mode
+        if (dist > 8) {
+          clearTimeout(longPressTimer);
+          const coords = getNormalizedTouchCoords(t);
 
-          if (now - lastSendTime > 16) {
-            lastSendTime = now;
-            sendRemoteInput({ action: 'move', x: cursorX, y: cursorY });
+          if (!isDragging) {
+            isDragging = true;
+            sendRemoteInput({ action: 'down', button: 'left' });
           }
-        } else if (remoteMode === 'direct') {
-          const rect = remoteTouchSurface.getBoundingClientRect();
-          cursorX = Math.min(Math.max((t.clientX - rect.left) / rect.width, 0), 1);
-          cursorY = Math.min(Math.max((t.clientY - rect.top) / rect.height, 0), 1);
 
           if (now - lastSendTime > 16) {
             lastSendTime = now;
-            sendRemoteInput({ action: 'move', x: cursorX, y: cursorY });
+            sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
           }
         }
       } else if (count === 2) {
+        clearTimeout(longPressTimer);
         const currentY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
         const diff = currentY - lastScrollY;
-        if (Math.abs(diff) > 8) {
+        if (Math.abs(diff) > 10) {
           lastScrollY = currentY;
           sendRemoteInput({ action: 'scroll', delta: diff > 0 ? 120 : -120 });
         }
@@ -1566,105 +1628,39 @@ function initMobileApp() {
 
     remoteTouchSurface.addEventListener('touchend', (e) => {
       e.preventDefault();
+      clearTimeout(longPressTimer);
       const duration = Date.now() - touchStartTime;
 
       if (e.touches.length === 0) {
-        if (duration < 300) {
-          const dist = Math.hypot(lastTouchX - touchStartX, lastTouchY - touchStartY);
-          if (dist < 14) {
+        if (isDragging) {
+          // Release mouse drag
+          sendRemoteInput({ action: 'up', button: 'left' });
+          isDragging = false;
+        } else if (!isLongPressTriggered && duration < 400) {
+          // Tap detected! Check if double-tap
+          const now = Date.now();
+          const distFromLastTap = Math.hypot(lastTouchX - lastTapX, lastTouchY - lastTapY);
+          const isDouble = (now - lastTapTime < 320) && (distFromLastTap < 30);
+
+          const coords = getNormalizedTouchCoords({ clientX: lastTouchX, clientY: lastTouchY });
+
+          if (isDouble) {
+            sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
+            sendRemoteInput({ action: 'click', button: 'double' });
+            lastTapTime = 0;
+          } else {
+            sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
             sendRemoteInput({ action: 'click', button: 'left' });
+            lastTapTime = now;
+            lastTapX = lastTouchX;
+            lastTapY = lastTouchY;
           }
         }
-      } else if (e.touches.length === 1 && duration < 300) {
-        sendRemoteInput({ action: 'click', button: 'right' });
       }
     }, { passive: false });
   }
 
-  // Mouse Buttons
-  if (leftClickBtn) leftClickBtn.addEventListener('click', () => sendRemoteInput({ action: 'click', button: 'left' }));
-  if (rightClickBtn) rightClickBtn.addEventListener('click', () => sendRemoteInput({ action: 'click', button: 'right' }));
-  if (scrollUpBtn) scrollUpBtn.addEventListener('click', () => sendRemoteInput({ action: 'scroll', delta: 120 }));
-  if (scrollDownBtn) scrollDownBtn.addEventListener('click', () => sendRemoteInput({ action: 'scroll', delta: -120 }));
-
-  // Mode Switcher
-  if (toggleRemoteModeBtn) {
-    toggleRemoteModeBtn.addEventListener('click', () => {
-      if (remoteMode === 'trackpad') {
-        remoteMode = 'direct';
-        if (remoteModeIcon) remoteModeIcon.textContent = '👆';
-        if (remoteModeText) remoteModeText.textContent = 'Direct Touch';
-        toggleRemoteModeBtn.classList.add('active');
-        showToast('Direct Touch Mode: Tap directly on PC items', '👆');
-      } else {
-        remoteMode = 'trackpad';
-        if (remoteModeIcon) remoteModeIcon.textContent = '🖱️';
-        if (remoteModeText) remoteModeText.textContent = 'Trackpad';
-        toggleRemoteModeBtn.classList.remove('active');
-        showToast('Trackpad Mode: Slide finger to glide cursor', '🖱️');
-      }
-    });
-  }
-
-  // Drawers Toggles
-  if (toggleRemoteKeyboardBtn && remoteKeyboardDrawer) {
-    toggleRemoteKeyboardBtn.addEventListener('click', () => {
-      const isShown = remoteKeyboardDrawer.style.display === 'block';
-      remoteKeyboardDrawer.style.display = isShown ? 'none' : 'block';
-      toggleRemoteKeyboardBtn.classList.toggle('active', !isShown);
-      if (remoteQuickDrawer) remoteQuickDrawer.style.display = 'none';
-      if (toggleQuickActionsBtn) toggleQuickActionsBtn.classList.remove('active');
-      if (!isShown && remoteTextInput) remoteTextInput.focus();
-    });
-  }
-
-  if (toggleQuickActionsBtn && remoteQuickDrawer) {
-    toggleQuickActionsBtn.addEventListener('click', () => {
-      const isShown = remoteQuickDrawer.style.display === 'block';
-      remoteQuickDrawer.style.display = isShown ? 'none' : 'block';
-      toggleQuickActionsBtn.classList.toggle('active', !isShown);
-      if (remoteKeyboardDrawer) remoteKeyboardDrawer.style.display = 'none';
-      if (toggleRemoteKeyboardBtn) toggleRemoteKeyboardBtn.classList.remove('active');
-    });
-  }
-
-  // Text send
-  function sendTextToPc() {
-    if (!remoteTextInput) return;
-    const text = remoteTextInput.value;
-    if (text) {
-      sendRemoteInput({ action: 'text', text });
-      remoteTextInput.value = '';
-      showToast('Typed to PC!', '⌨️');
-    }
-  }
-
-  if (sendRemoteTextBtn) sendRemoteTextBtn.addEventListener('click', sendTextToPc);
-  if (remoteTextInput) {
-    remoteTextInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        sendTextToPc();
-      }
-    });
-  }
-
-  // PC Key & Shortcut Buttons
-  document.querySelectorAll('.pc-key-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = btn.getAttribute('data-key');
-      const shortcut = btn.getAttribute('data-shortcut');
-      if (key) {
-        sendRemoteInput({ action: 'key', key });
-        showToast(`Sent key: ${key}`, '⌨️');
-      } else if (shortcut) {
-        sendRemoteInput({ action: 'shortcut', shortcut });
-        showToast(`Triggered: ${shortcut}`, '⚡');
-      }
-    });
-  });
-
-  // Open & Close Buttons
+  // Open & Close Handlers
   if (openRemoteBtn) openRemoteBtn.addEventListener('click', openRemoteDesktop);
   if (remotePcPromoCard) remotePcPromoCard.addEventListener('click', openRemoteDesktop);
   if (closeRemoteOverlayBtn) closeRemoteOverlayBtn.addEventListener('click', closeRemoteDesktop);

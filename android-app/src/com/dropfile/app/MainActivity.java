@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -125,6 +126,17 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     String fullUrl = resolveFullUrl(url);
                     openInDefaultApp(fullUrl, mimeType);
+                });
+            }
+
+            @JavascriptInterface
+            public void setLandscape(boolean enable) {
+                runOnUiThread(() -> {
+                    if (enable) {
+                        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                    } else {
+                        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                    }
                 });
             }
         }, "AndroidHost");
@@ -343,6 +355,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         if (webContainer.getVisibility() == View.VISIBLE) {
             if (webView.canGoBack()) {
                 webView.goBack();
