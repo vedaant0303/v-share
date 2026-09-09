@@ -1761,6 +1761,115 @@ function initMobileApp() {
   if (closeRemoteOverlayBtn) closeRemoteOverlayBtn.addEventListener('click', closeRemoteDesktop);
   if (requestRemoteStartBtn) requestRemoteStartBtn.addEventListener('click', requestRemoteStart);
 
+  // noVNC-Style Mobile Control Dock Handlers
+  const dockWinBtn = document.getElementById('remoteDockWinBtn');
+  const dockDesktopBtn = document.getElementById('remoteDockDesktopBtn');
+  const dockRightClickBtn = document.getElementById('remoteDockRightClickBtn');
+  const dockKbdBtn = document.getElementById('remoteDockKbdBtn');
+  const dockTaskMgrBtn = document.getElementById('remoteDockTaskMgrBtn');
+  const kbdDrawer = document.getElementById('remoteKeyboardDrawer');
+  const kbdInput = document.getElementById('remoteKbdInput');
+  const sendTextBtn = document.getElementById('remoteSendTextBtn');
+  const keyEnterBtn = document.getElementById('remoteKeyEnterBtn');
+  const keyEscBtn = document.getElementById('remoteKeyEscBtn');
+  const keyTabBtn = document.getElementById('remoteKeyTabBtn');
+  const keyBkspBtn = document.getElementById('remoteKeyBkspBtn');
+  const closeKbdBtn = document.getElementById('closeKbdDrawerBtn');
+
+  if (dockWinBtn) {
+    dockWinBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'shortcut', shortcut: 'win' });
+      showToast('🪟 Windows Start Menu', '⚡');
+    });
+  }
+
+  if (dockDesktopBtn) {
+    dockDesktopBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'shortcut', shortcut: 'win+d' });
+      showToast('🖥️ Show Desktop (Win+D)', '⚡');
+    });
+  }
+
+  if (dockRightClickBtn) {
+    dockRightClickBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'click', button: 'right' });
+      showToast('🖱️ Right Click', '⚡');
+    });
+  }
+
+  if (dockTaskMgrBtn) {
+    dockTaskMgrBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'shortcut', shortcut: 'taskmgr' });
+      showToast('⚡ Task Manager (Ctrl+Shift+Esc)', '⚡');
+    });
+  }
+
+  if (dockKbdBtn && kbdDrawer) {
+    dockKbdBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = kbdDrawer.style.display === 'none';
+      kbdDrawer.style.display = isHidden ? 'flex' : 'none';
+      if (isHidden && kbdInput) kbdInput.focus();
+    });
+  }
+
+  if (closeKbdBtn && kbdDrawer) {
+    closeKbdBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      kbdDrawer.style.display = 'none';
+    });
+  }
+
+  if (sendTextBtn && kbdInput) {
+    sendTextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const txt = kbdInput.value;
+      if (txt) {
+        sendRemoteInput({ action: 'text', text: txt });
+        kbdInput.value = '';
+        showToast(`Sent: "${txt}"`, '⌨️');
+      }
+    });
+    kbdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendTextBtn.click();
+      }
+    });
+  }
+
+  if (keyEnterBtn) {
+    keyEnterBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'key', key: '{ENTER}' });
+    });
+  }
+
+  if (keyEscBtn) {
+    keyEscBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'key', key: '{ESC}' });
+    });
+  }
+
+  if (keyTabBtn) {
+    keyTabBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'key', key: '{TAB}' });
+    });
+  }
+
+  if (keyBkspBtn) {
+    keyBkspBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sendRemoteInput({ action: 'key', key: '{BACKSPACE}' });
+    });
+  }
+
   // Initial render of received files and PC file count
   renderDeviceChips();
   renderReceivedFromPc();

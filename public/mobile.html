@@ -542,9 +542,97 @@
       z-index: 10003;
       animation: touchPop 0.35s ease-out forwards;
     }
-    @keyframes touchPop {
-      0% { transform: translate(-50%, -50%) scale(0.4); opacity: 1; }
-      100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+    .remote-control-dock {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10006;
+      display: flex;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      transition: opacity 0.3s ease;
+    }
+    .dock-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .dock-btn:active {
+      transform: scale(0.92);
+      background: rgba(56, 189, 248, 0.3);
+    }
+    .remote-kbd-drawer {
+      position: absolute;
+      bottom: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10007;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 12px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 16px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8);
+      max-width: 95vw;
+      align-items: center;
+    }
+    .remote-kbd-drawer input {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      flex: 1;
+      min-width: 140px;
+    }
+    .dock-btn-accent {
+      background: linear-gradient(135deg, #00f2fe, #4facfe);
+      border: none;
+      color: #000;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .dock-key-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .dock-key-btn:active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .dock-key-btn.close-btn {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
     }
 
     .remote-waiting-card {
@@ -1048,6 +1136,26 @@
       <video id="remoteScreenVideo" autoplay playsinline webkit-playsinline muted controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture></video>
       <canvas id="remoteScreenCanvas" class="remote-screen-canvas" style="display: none;"></canvas>
       <div id="remoteTouchSurface" class="remote-touch-surface"></div>
+
+      <!-- noVNC-Style Mobile Control Dock at the Bottom -->
+      <div id="remoteControlDock" class="remote-control-dock">
+        <button id="remoteDockWinBtn" class="dock-btn" type="button" title="Windows Start Menu">🪟 Start</button>
+        <button id="remoteDockDesktopBtn" class="dock-btn" type="button" title="Show Desktop (Win+D)">🖥️ Desktop</button>
+        <button id="remoteDockRightClickBtn" class="dock-btn" type="button" title="Right Click">🖱️ Right Click</button>
+        <button id="remoteDockKbdBtn" class="dock-btn" type="button" title="Open Keyboard">⌨️ Type</button>
+        <button id="remoteDockTaskMgrBtn" class="dock-btn" type="button" title="Task Manager">⚡ TaskMgr</button>
+      </div>
+
+      <!-- On-Screen Keyboard Drawer -->
+      <div id="remoteKeyboardDrawer" class="remote-kbd-drawer" style="display: none;">
+        <input type="text" id="remoteKbdInput" placeholder="Type text to send to PC..." autocomplete="off" />
+        <button id="remoteSendTextBtn" class="dock-btn-accent" type="button">Send ↵</button>
+        <button id="remoteKeyEnterBtn" class="dock-key-btn" type="button">Enter</button>
+        <button id="remoteKeyEscBtn" class="dock-key-btn" type="button">Esc</button>
+        <button id="remoteKeyTabBtn" class="dock-key-btn" type="button">Tab</button>
+        <button id="remoteKeyBkspBtn" class="dock-key-btn" type="button">⌫</button>
+        <button id="closeKbdDrawerBtn" class="dock-key-btn close-btn" type="button">✕</button>
+      </div>
 
       <!-- Initial Connect Card -->
       <div id="remoteWaitingCard" class="remote-waiting-card">

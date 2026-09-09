@@ -23,6 +23,10 @@ public class VRemoteInput {
     const int MOUSEEVENTF_RIGHTUP = 0x10;
     const int MOUSEEVENTF_WHEEL = 0x0800;
 
+    // --- Keyboard Control ---
+    [DllImport("user32.dll")]
+    static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+
     // --- BitBlt Screen Capture (works in background sessions) ---
     [DllImport("user32.dll")]
     static extern IntPtr GetDesktopWindow();
@@ -189,6 +193,25 @@ public class VRemoteInput {
                 } else if (cmd == "key" && parts.Length >= 2) {
                     string keyString = line.Substring(4);
                     SendKeys.SendWait(keyString);
+
+                } else if (cmd == "shortcut" && parts.Length >= 2) {
+                    string sc = parts[1].ToLower();
+                    if (sc == "win+d" || sc == "desktop") {
+                        keybd_event(0x5B, 0, 0, 0); // LWin down
+                        keybd_event(0x44, 0, 0, 0); // D down
+                        keybd_event(0x44, 0, 2, 0); // D up
+                        keybd_event(0x5B, 0, 2, 0); // LWin up
+                    } else if (sc == "win" || sc == "start") {
+                        keybd_event(0x5B, 0, 0, 0); // LWin down
+                        keybd_event(0x5B, 0, 2, 0); // LWin up
+                    } else if (sc == "taskmgr" || sc == "ctrl+shift+esc") {
+                        keybd_event(0x11, 0, 0, 0); // Ctrl
+                        keybd_event(0x10, 0, 0, 0); // Shift
+                        keybd_event(0x1B, 0, 0, 0); // Esc
+                        keybd_event(0x1B, 0, 2, 0);
+                        keybd_event(0x10, 0, 2, 0);
+                        keybd_event(0x11, 0, 2, 0);
+                    }
 
                 } else if (cmd == "screen") {
                     int w = GetSystemMetrics(SM_CXSCREEN);
