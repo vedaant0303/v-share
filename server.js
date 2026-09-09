@@ -139,18 +139,42 @@ function initRemoteInputBridge() {
       windowsHide: true
     });
 
+    let stdoutBuffer = '';
     remoteInputProcess.stdout.on('data', (data) => {
-      const text = data.toString().trim();
-      const lines = text.split('\n');
-      for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (line.startsWith('SCREEN ')) {
+      stdoutBuffer += data.toString();
+      let newlineIdx;
+      while ((newlineIdx = stdoutBuffer.indexOf('\n')) !== -1) {
+        const line = stdoutBuffer.substring(0, newlineIdx).trim();
+        stdoutBuffer = stdoutBuffer.substring(newlineIdx + 1);
+
+        if (!line) continue;
+
+        if (line.startsWith('FRAME ')) {
+          const b64 = line.substring(6);
+          const frameMsg = {
+            type: 'remote_frame',
+            frame: b64,
+            data: b64,
+            w: screenWidth,
+            h: screenHeight
+          };
+          if (activeRemoteRoomId && rooms.has(activeRemoteRoomId)) {
+            broadcastToRoom(activeRemoteRoomId, frameMsg);
+          } else {
+            broadcast(frameMsg);
+          }
+          if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+            activeCloudBridgeWs.send(JSON.stringify(frameMsg));
+          }
+        } else if (line.startsWith('SCREEN ')) {
           const parts = line.split(' ');
           if (parts.length >= 3) {
             screenWidth = parseInt(parts[1], 10) || 1920;
             screenHeight = parseInt(parts[2], 10) || 1080;
             console.log(`🖥️ [RemoteInput] PC Screen Resolution: ${screenWidth}x${screenHeight}`);
           }
+        } else if (line.startsWith('CAPTURE-')) {
+          console.log(`🖥️ [RemoteInput] ${line}`);
         }
       }
     });
@@ -168,6 +192,26 @@ function initRemoteInputBridge() {
     remoteInputProcess.stdin.write('screen\n');
   } catch (err) {
     console.warn('[RemoteInput] Failed to start VRemoteInput:', err.message);
+  }
+}
+
+let activeRemoteRoomId = null;
+
+function startUnattendedCapture(roomId = null) {
+  if (roomId) activeRemoteRoomId = roomId;
+  if (!remoteInputProcess || !remoteInputProcess.stdin || remoteInputProcess.stdin.destroyed) {
+    initRemoteInputBridge();
+  }
+  if (remoteInputProcess && remoteInputProcess.stdin) {
+    console.log('🖥️ [RemoteInput] Starting unattended background desktop screen capture...');
+    remoteInputProcess.stdin.write('capture start 20 60\n');
+  }
+}
+
+function stopUnattendedCapture() {
+  if (remoteInputProcess && remoteInputProcess.stdin && !remoteInputProcess.stdin.destroyed) {
+    console.log('🖥️ [RemoteInput] Stopping unattended background desktop screen capture...');
+    remoteInputProcess.stdin.write('capture stop\n');
   }
 }
 
@@ -308,7 +352,45 @@ wss.on('connection', (ws, req) => {
         }
       }
 
-      // Remote Desktop / OS Sharing Handlers
+      // Remote Desktop / OS Sharing Handlers (Unattended + WebRTC)
+      if (data.type === 'unattended_remote_start') {
+        const targetRoom = data.roomId || ws.roomId;
+        startUnattendedCapture(targetRoom);
+        if (targetRoom && rooms.has(targetRoom)) {
+          broadcastToRoom(targetRoom, data, ws);
+        } else {
+          broadcast(data, ws);
+        }
+        if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+          activeCloudBridgeWs.send(JSON.stringify(data));
+        }
+        return;
+      }
+
+      if (data.type === 'unattended_remote_stop') {
+        stopUnattendedCapture();
+        const targetRoom = data.roomId || ws.roomId;
+        if (targetRoom && rooms.has(targetRoom)) {
+          broadcastToRoom(targetRoom, data, ws);
+        } else {
+          broadcast(data, ws);
+        }
+        if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+          activeCloudBridgeWs.send(JSON.stringify(data));
+        }
+        return;
+      }
+
+      if (data.type === 'remote_frame') {
+        const targetRoom = data.roomId || ws.roomId;
+        if (targetRoom && rooms.has(targetRoom)) {
+          broadcastToRoom(targetRoom, data, ws);
+        } else {
+          broadcast(data, ws);
+        }
+        return;
+      }
+
       if (data.type === 'remote_start_request' || data.type === 'remote_stop' ||
           data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' ||
           data.type === 'remote_input') {
@@ -1285,8 +1367,18 @@ server.listen(PORT, '0.0.0.0', () => {
         try {
           const msg = JSON.parse(data);
 
+          if (msg.type === 'unattended_remote_start') {
+            console.log('🖥️ [Cloud Bridge] Received unattended remote start request from mobile!');
+            startUnattendedCapture(msg.roomId);
+            return;
+          }
+
+          if (msg.type === 'unattended_remote_stop') {
+            stopUnattendedCapture();
+            return;
+          }
+
           if (msg.type === 'remote_input') {
-            console.log(`🖱️ [Cloud Bridge] Remote input action: ${msg.action} (${msg.button || ''})`);
             handleRemoteInputEvent(msg);
             return;
           }

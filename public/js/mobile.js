@@ -617,6 +617,28 @@ function initMobileApp() {
               console.error('Error adding ICE candidate on Mobile:', e);
             }
           }
+          const frameData = msg.frame || msg.data;
+          if (msg.type === 'remote_frame' && frameData) {
+            const canvas = document.getElementById('remoteScreenCanvas');
+            const waiting = document.getElementById('remoteWaitingCard');
+            if (waiting && waiting.style.display !== 'none') {
+              waiting.style.display = 'none';
+              showToast('🟢 Unattended Remote PC Desktop Active!', '🖥️');
+            }
+            if (canvas) {
+              canvas.style.display = 'block';
+              const ctx = canvas.getContext('2d');
+              const img = new Image();
+              img.onload = () => {
+                if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+                  canvas.width = img.naturalWidth;
+                  canvas.height = img.naturalHeight;
+                }
+                ctx.drawImage(img, 0, 0);
+              };
+              img.src = 'data:image/jpeg;base64,' + frameData;
+            }
+          }
           if (msg.type === 'remote_stop') {
             handleRemoteSessionStopped();
           }
@@ -1418,6 +1440,13 @@ function initMobileApp() {
         }
       } catch (e) {}
 
+      const canvas = document.getElementById('remoteScreenCanvas');
+      if (canvas) {
+        canvas.style.display = 'none';
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
       if (remoteScreenStream) {
         remoteScreenStream.getTracks().forEach(t => t.stop());
         remoteScreenStream = null;
@@ -1428,6 +1457,7 @@ function initMobileApp() {
       }
       if (remoteScreenVideo) remoteScreenVideo.srcObject = null;
       if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'unattended_remote_stop', roomId: currentRoomId, role: 'mobile' }));
         ws.send(JSON.stringify({ type: 'remote_stop', role: 'mobile' }));
       }
     }
@@ -1437,15 +1467,20 @@ function initMobileApp() {
     primeRemoteVideoPlayback();
     if (remoteWaitingCard) remoteWaitingCard.style.display = 'flex';
     if (remoteWaitingTitle) remoteWaitingTitle.textContent = 'Connecting to PC Screen...';
-    if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'Please click "Allow" on your PC screen when prompted.';
-    if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '⏳ Waiting for PC...';
+    if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'Connecting unattended screen stream and hardware controls...';
+    if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '⏳ Connecting to PC...';
 
     if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'unattended_remote_start',
+        roomId: currentRoomId,
+        role: 'mobile'
+      }));
       ws.send(JSON.stringify({
         type: 'remote_start_request',
         role: 'mobile'
       }));
-      showToast('Requested PC screen share...', '🖥️');
+      showToast('Connecting to PC Screen...', '🖥️');
     } else {
       showToast('Connecting to PC first...', '⏳');
     }
@@ -1521,10 +1556,16 @@ function initMobileApp() {
   }
 
   function handleRemoteSessionStopped() {
+    const canvas = document.getElementById('remoteScreenCanvas');
+    if (canvas) {
+      canvas.style.display = 'none';
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
     if (remoteWaitingCard) {
       remoteWaitingCard.style.display = 'flex';
       if (remoteWaitingTitle) remoteWaitingTitle.textContent = 'Screen Share Ended';
-      if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'PC has stopped sharing the screen.';
+      if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'PC desktop stream has ended.';
       if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '🚀 Reconnect Fullscreen PC';
     }
     if (remoteScreenVideo) remoteScreenVideo.srcObject = null;
@@ -1536,27 +1577,37 @@ function initMobileApp() {
 
   // --- Accurate Touchscreen Mapping Helper ---
   function getNormalizedTouchCoords(touch) {
-    if (!remoteScreenVideo) return { x: 0.5, y: 0.5 };
+    const canvas = document.getElementById('remoteScreenCanvas');
+    const isCanvasActive = canvas && canvas.style.display !== 'none' && canvas.width > 0;
+
     const rect = remoteTouchSurface.getBoundingClientRect();
     const contW = rect.width || window.innerWidth;
     const contH = rect.height || window.innerHeight;
 
-    const vidW = remoteScreenVideo.videoWidth || 1920;
-    const vidH = remoteScreenVideo.videoHeight || 1080;
+    let contentW = 1920;
+    let contentH = 1080;
+
+    if (isCanvasActive) {
+      contentW = canvas.width;
+      contentH = canvas.height;
+    } else if (remoteScreenVideo && remoteScreenVideo.videoWidth) {
+      contentW = remoteScreenVideo.videoWidth;
+      contentH = remoteScreenVideo.videoHeight;
+    }
 
     const contAspect = contW / contH;
-    const vidAspect = vidW / vidH;
+    const contentAspect = contentW / contentH;
 
     let renderedW, renderedH, offsetX, offsetY;
 
-    if (contAspect > vidAspect) {
+    if (contAspect > contentAspect) {
       renderedH = contH;
-      renderedW = contH * vidAspect;
+      renderedW = contH * contentAspect;
       offsetX = (contW - renderedW) / 2;
       offsetY = 0;
     } else {
       renderedW = contW;
-      renderedH = contW / vidAspect;
+      renderedH = contW / contentAspect;
       offsetX = 0;
       offsetY = (contH - renderedH) / 2;
     }
