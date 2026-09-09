@@ -80,6 +80,32 @@ app.head(['/api/ping', '/ping', '/healthz', '/'], (req, res) => {
 // Store connected clients for WebSocket
 const clients = new Set();
 
+// In-Memory Private Room Pairing (Zero Database, 100% Private Peer-to-Peer)
+const rooms = new Map(); // roomId -> { pcClients: Set(), mobileClients: Set(), createdAt: Date.now() }
+
+function getOrCreateRoom(roomId) {
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, {
+      pcClients: new Set(),
+      mobileClients: new Set(),
+      createdAt: Date.now()
+    });
+  }
+  return rooms.get(roomId);
+}
+
+function broadcastToRoom(roomId, data, excludeWs = null) {
+  if (!roomId || !rooms.has(roomId)) return;
+  const room = rooms.get(roomId);
+  const payload = JSON.stringify(data);
+  const targets = new Set([...room.pcClients, ...room.mobileClients]);
+  for (const client of targets) {
+    if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
 wss.on('connection', (ws, req) => {
   clients.add(ws);
   const userAgent = req.headers['user-agent'] || '';
@@ -87,24 +113,75 @@ wss.on('connection', (ws, req) => {
   
   console.log(`[WS] ${isMobile ? '📱 Mobile Phone' : '💻 PC'} connected (Total: ${clients.size})`);
 
-  broadcast({
-    type: 'client_connected',
-    clientCount: clients.size,
-    isMobile,
-    timestamp: Date.now()
-  });
-
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
-      if (data.type === 'clipboard_share') {
-        // Broadcast clipboard text to all other clients
-        broadcast({
-          type: 'clipboard_received',
-          text: data.text,
-          from: isMobile ? 'Mobile' : 'PC',
+
+      // Private Room Pairing System
+      if (data.type === 'join_room' && data.roomId) {
+        const roomId = String(data.roomId).trim();
+        const role = data.role || (isMobile ? 'mobile' : 'pc');
+        
+        // Remove from old room if switched
+        if (ws.roomId && ws.roomId !== roomId && rooms.has(ws.roomId)) {
+          const oldRoom = rooms.get(ws.roomId);
+          oldRoom.pcClients.delete(ws);
+          oldRoom.mobileClients.delete(ws);
+        }
+
+        ws.roomId = roomId;
+        ws.role = role;
+        const room = getOrCreateRoom(roomId);
+
+        if (role === 'pc') {
+          room.pcClients.add(ws);
+        } else {
+          room.mobileClients.add(ws);
+        }
+
+        console.log(`[Room ${roomId}] ${role === 'mobile' ? '📱 Mobile' : '💻 PC'} paired (PC: ${room.pcClients.size}, Mobile: ${room.mobileClients.size})`);
+
+        // Notify both devices in the private room
+        broadcastToRoom(roomId, {
+          type: 'room_status',
+          roomId,
+          role,
+          pcCount: room.pcClients.size,
+          mobileCount: room.mobileClients.size,
+          isPaired: room.pcClients.size > 0 && room.mobileClients.size > 0,
           timestamp: Date.now()
         });
+
+        // Send direct confirmation
+        ws.send(JSON.stringify({
+          type: 'room_joined',
+          roomId,
+          role,
+          pcCount: room.pcClients.size,
+          mobileCount: room.mobileClients.size,
+          isPaired: room.pcClients.size > 0 && room.mobileClients.size > 0
+        }));
+        return;
+      }
+
+      if (data.type === 'clipboard_share') {
+        if (ws.roomId) {
+          broadcastToRoom(ws.roomId, {
+            type: 'clipboard_received',
+            text: data.text,
+            from: isMobile ? 'Mobile' : 'PC',
+            roomId: ws.roomId,
+            timestamp: Date.now()
+          }, ws);
+        } else {
+          // Broadcast clipboard text to all other clients
+          broadcast({
+            type: 'clipboard_received',
+            text: data.text,
+            from: isMobile ? 'Mobile' : 'PC',
+            timestamp: Date.now()
+          });
+        }
       }
     } catch (err) {
       console.error('Error handling WS message:', err);
@@ -113,6 +190,25 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     clients.delete(ws);
+
+    if (ws.roomId && rooms.has(ws.roomId)) {
+      const room = rooms.get(ws.roomId);
+      room.pcClients.delete(ws);
+      room.mobileClients.delete(ws);
+      if (room.pcClients.size === 0 && room.mobileClients.size === 0) {
+        rooms.delete(ws.roomId);
+      } else {
+        broadcastToRoom(ws.roomId, {
+          type: 'room_status',
+          roomId: ws.roomId,
+          pcCount: room.pcClients.size,
+          mobileCount: room.mobileClients.size,
+          isPaired: room.pcClients.size > 0 && room.mobileClients.size > 0,
+          timestamp: Date.now()
+        });
+      }
+    }
+
     broadcast({
       type: 'client_disconnected',
       clientCount: clients.size,
@@ -298,6 +394,11 @@ app.get('/api/info', async (req, res) => {
       mobileUrl = `http://${primaryIp}:${PORT}/mobile`;
     }
 
+    const roomId = req.query.room ? String(req.query.room).trim() : '';
+    if (roomId) {
+      mobileUrl += (mobileUrl.includes('?') ? '&' : '?') + `room=${encodeURIComponent(roomId)}`;
+    }
+
     const qrDataUrl = await qrcode.toDataURL(mobileUrl, {
       margin: 1,
       width: 280,
@@ -312,6 +413,7 @@ app.get('/api/info', async (req, res) => {
       primaryIp: interfaces.length > 0 ? interfaces[0].address : 'localhost',
       mobileUrl,
       qrDataUrl,
+      roomId,
       interfaces,
       tunnelActive: !!activeTunnelUrl,
       tunnelUrl: activeTunnelUrl,
@@ -449,6 +551,7 @@ app.post('/api/upload', (req, res) => {
   const uploadedFiles = [];
   let fileWritePromises = [];
   const sender = (req.query.sender || req.headers['x-sender'] || 'mobile').toLowerCase();
+  const roomId = req.query.room || req.headers['x-room-id'] || req.query.roomId;
 
   bb.on('file', (name, fileStream, info) => {
     const { filename, encoding, mimeType } = info;
@@ -464,14 +567,21 @@ app.post('/api/upload', (req, res) => {
 
     let bytesReceived = 0;
 
-    // Broadcast upload start
-    broadcast({
+    // Broadcast upload start to room or globally
+    const uploadStartEvent = {
       type: 'file_upload_start',
       name: uniqueName,
       mimeType,
       sender: sender === 'pc' ? 'PC' : 'Mobile',
+      roomId: roomId || null,
       timestamp: Date.now()
-    });
+    };
+
+    if (roomId && rooms.has(roomId)) {
+      broadcastToRoom(roomId, uploadStartEvent);
+    } else {
+      broadcast(uploadStartEvent);
+    }
 
     fileStream.on('data', (data) => {
       bytesReceived += data.length;
@@ -502,22 +612,35 @@ app.post('/api/upload', (req, res) => {
 
         uploadedFiles.push(fileRecord);
 
-        // Notify all clients that this file completed
-        broadcast({
+        // Notify paired devices in this room (or globally if no room)
+        const fileReceivedEvent = {
           type: 'file_received',
           file: fileRecord,
           sender: sender === 'pc' ? 'PC' : 'Mobile',
+          roomId: roomId || null,
           timestamp: Date.now()
-        });
+        };
+
+        if (roomId && rooms.has(roomId)) {
+          broadcastToRoom(roomId, fileReceivedEvent);
+        } else {
+          broadcast(fileReceivedEvent);
+        }
 
         // If uploaded from PC, explicitly notify mobile devices with file_for_mobile
         if (sender === 'pc') {
-          broadcast({
+          const fileForMobileEvent = {
             type: 'file_for_mobile',
             sender: 'PC',
             file: fileRecord,
+            roomId: roomId || null,
             timestamp: Date.now()
-          });
+          };
+          if (roomId && rooms.has(roomId)) {
+            broadcastToRoom(roomId, fileForMobileEvent);
+          } else {
+            broadcast(fileForMobileEvent);
+          }
         }
 
         resolve(fileRecord);
@@ -555,7 +678,7 @@ app.post('/api/upload', (req, res) => {
 
 // API: Send existing file on PC to Mobile Phone
 app.post('/api/send-to-mobile', (req, res) => {
-  const { filename } = req.body;
+  const { filename, roomId } = req.body;
   if (!filename) return res.status(400).json({ error: 'Filename is required' });
   const filePath = path.join(UPLOAD_DIR, filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
@@ -580,13 +703,19 @@ app.post('/api/send-to-mobile', (req, res) => {
       previewUrl: `/preview/${encodeURIComponent(filename)}`
     };
 
-    // Broadcast file_for_mobile event to all connected devices
-    broadcast({
+    const fileEvent = {
       type: 'file_for_mobile',
       sender: 'PC',
       file: fileRecord,
+      roomId: roomId || null,
       timestamp: Date.now()
-    });
+    };
+
+    if (roomId && rooms.has(roomId)) {
+      broadcastToRoom(roomId, fileEvent);
+    } else {
+      broadcast(fileEvent);
+    }
 
     res.json({ success: true, file: fileRecord });
   } catch (err) {

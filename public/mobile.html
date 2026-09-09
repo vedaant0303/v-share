@@ -460,6 +460,24 @@
       </div>
     </header>
 
+    <!-- Room / Pairing Banner -->
+    <div id="roomPairingBanner" style="background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+        <span id="roomStatusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.7); flex-shrink: 0;"></span>
+        <div style="min-width: 0;">
+          <div id="roomStatusTitle" style="font-size: 13px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            Paired with Your PC
+          </div>
+          <div id="roomStatusSubtitle" style="font-size: 11.5px; color: #94a3b8;">
+            Pairing Code: <span id="mobileRoomCodeText" style="color: #60a5fa; font-weight: 700; font-family: monospace;">--- ---</span>
+          </div>
+        </div>
+      </div>
+      <button id="changeRoomBtn" type="button" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; flex-shrink: 0;">
+        Pair New PC
+      </button>
+    </div>
+
     <!-- Direct Android App Download Card -->
     <a id="androidPromoCard" href="/V-Share.apk" download class="app-promo-card" title="Install Android Native App for Direct Share Menu">
       <div class="app-promo-left">
@@ -493,7 +511,7 @@
       </svg>
       <div class="mobile-drop-title">Drop Any File to PC</div>
       <div class="mobile-drop-subtitle">
-        Saves straight to PC &bull; <b>Downloads/Submitt</b>
+        Saves straight to your PC's folder
       </div>
     </div>
 
@@ -714,9 +732,25 @@
     </div>
   </div>
 
+  <!-- Pair PC Code Modal -->
+  <div id="pairModal" class="beam-modal">
+    <div class="beam-modal-card" style="max-width: 340px; text-align: center;">
+      <button id="closePairModalBtn" class="beam-close-btn">&times;</button>
+      <div style="font-size: 36px; margin-bottom: 8px;">💻 🔗 📱</div>
+      <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 6px; color: #fff;">Pair with Your PC</h3>
+      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px;">
+        Enter the 6-digit code shown under the QR code on your PC screen:
+      </p>
+      <input type="text" id="manualRoomCodeInput" maxlength="6" placeholder="e.g. 482910" style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; font-family: monospace; letter-spacing: 4px; padding: 10px; background: #0b0f16; border: 1px solid rgba(0, 150, 255, 0.4); border-radius: 10px; color: #00f2fe; margin-bottom: 16px; box-sizing: border-box; outline: none;">
+      <button id="connectRoomBtn" type="button" style="width: 100%; padding: 12px; border-radius: 10px; background: #2563eb; border: none; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;">
+        🔗 Pair with PC
+      </button>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="/js/mobile.js?v=7"></script>
+  <script src="/js/mobile.js?v=12"></script>
 </body>
 </html>

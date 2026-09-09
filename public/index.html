@@ -65,12 +65,11 @@
           Folder
         </button>
 
-        <button id="folderSettingsBtn" class="header-btn" title="Change where files are saved on PC" style="background: rgba(37, 99, 235, 0.12); border-color: rgba(37, 99, 235, 0.35); color: #60a5fa;">
+        <button id="chooseFolderBtn" class="header-btn" title="Choose any folder on your PC to store received files" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #34d399; font-weight: 500;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
-          <span id="saveLocationBtnText">Save Location</span>
+          <span id="chosenFolderText">📂 Choose PC Folder</span>
         </button>
       </div>
     </header>
@@ -84,6 +83,20 @@
 
           <div class="qr-wrapper">
             <img id="qrImage" src="" alt="Scan QR Code to Connect">
+          </div>
+
+          <!-- Private Pairing Code Display -->
+          <div class="pairing-box" style="margin: 12px 0 14px; background: rgba(0, 150, 255, 0.08); border: 1px dashed rgba(0, 150, 255, 0.35); border-radius: 10px; padding: 10px 14px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 4px;">
+              🔒 Private Pairing Code
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <span id="roomCodeDisplay" style="font-family: monospace; font-size: 22px; font-weight: 800; letter-spacing: 3px; color: #00f2fe;">--- ---</span>
+              <button id="copyRoomCodeBtn" type="button" title="Copy Pairing Code" style="background: none; border: none; cursor: pointer; font-size: 15px; color: #94a3b8; padding: 2px 4px;">📋</button>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 3px;">
+              Scan QR or enter this code on your phone
+            </div>
           </div>
 
           <div class="url-capsule">
@@ -271,6 +284,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/pc.js?v=11"></script>
+  <script src="/js/pc.js?v=12"></script>
 </body>
 </html>

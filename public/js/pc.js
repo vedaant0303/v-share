@@ -5,6 +5,80 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentFilter = 'all';
   let systemInfo = null;
   let autoSaveToPc = localStorage.getItem('vshare_auto_save') !== 'false';
+  let chosenDirectoryHandle = null;
+
+  // Private Room Pairing Identifier (In-Memory Pairing, Zero Database)
+  let currentRoomId = sessionStorage.getItem('vshare_pc_room_id');
+  if (!currentRoomId) {
+    currentRoomId = Math.floor(100000 + Math.random() * 900000).toString();
+    sessionStorage.setItem('vshare_pc_room_id', currentRoomId);
+  }
+
+  // Display Pairing Code in UI
+  const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+  if (roomCodeDisplay) {
+    roomCodeDisplay.textContent = `${currentRoomId.substring(0, 3)} ${currentRoomId.substring(3)}`;
+  }
+
+  const copyRoomCodeBtn = document.getElementById('copyRoomCodeBtn');
+  if (copyRoomCodeBtn) {
+    copyRoomCodeBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(currentRoomId);
+      showToast(`Copied pairing code: ${currentRoomId}`, '🔒');
+    });
+  }
+
+  // Native PC Folder Picker (Web File System Access API)
+  const chooseFolderBtn = document.getElementById('chooseFolderBtn');
+  const chosenFolderText = document.getElementById('chosenFolderText');
+
+  if (chooseFolderBtn) {
+    chooseFolderBtn.addEventListener('click', async () => {
+      if (!('showDirectoryPicker' in window)) {
+        showToast('Your browser saves files to PC Downloads automatically! (Chrome/Edge supports custom folder picker)', 'ℹ️');
+        return;
+      }
+      try {
+        chosenDirectoryHandle = await window.showDirectoryPicker({
+          mode: 'readwrite',
+          startIn: 'downloads'
+        });
+        const folderName = chosenDirectoryHandle.name || 'Selected Folder';
+        if (chosenFolderText) {
+          chosenFolderText.textContent = `📁 ${folderName}`;
+        }
+        chooseFolderBtn.style.background = 'rgba(16, 185, 129, 0.25)';
+        chooseFolderBtn.style.borderColor = '#10b981';
+        chooseFolderBtn.style.color = '#34d399';
+        showToast(`✅ Incoming mobile files will save directly to PC folder: ${folderName}`, '📂');
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          console.error('Directory picker error:', e);
+          showToast('Folder selection cancelled or permission denied', '⚠️');
+        }
+      }
+    });
+  }
+
+  // Save file directly to chosen PC folder
+  async function saveFileDirectlyToPcFolder(file) {
+    if (!chosenDirectoryHandle) {
+      if (autoSaveToPc) triggerBrowserDownload(file);
+      return;
+    }
+    try {
+      const response = await fetch(file.downloadUrl);
+      const blob = await response.blob();
+      const fileHandle = await chosenDirectoryHandle.getFileHandle(file.name, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      showToast(`💾 Saved "${file.name}" to your chosen PC folder!`, '📂');
+    } catch (err) {
+      console.warn('Directory handle write fallback:', err);
+      if (autoSaveToPc) triggerBrowserDownload(file);
+    }
+  }
 
   // Trigger direct browser download to PC Downloads folder
   function triggerBrowserDownload(file) {
@@ -93,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fetch System Info & QR Code
   async function loadSystemInfo() {
     try {
-      const res = await fetch('/api/info');
+      const res = await fetch(`/api/info?room=${encodeURIComponent(currentRoomId)}`);
       systemInfo = await res.json();
       renderFiles();
 
@@ -169,14 +243,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedVal = e.target.value;
         let newUrl;
         if (selectedVal.startsWith('http')) {
-          newUrl = `${selectedVal}/mobile`;
+          newUrl = `${selectedVal}/mobile?room=${encodeURIComponent(currentRoomId)}`;
         } else {
-          newUrl = `http://${selectedVal}:${systemInfo.port}/mobile`;
+          newUrl = `http://${selectedVal}:${systemInfo.port}/mobile?room=${encodeURIComponent(currentRoomId)}`;
         }
         mobileInput.value = newUrl;
         
         try {
-          const qrRes = await fetch(`/api/info?ip=${encodeURIComponent(selectedVal)}`);
+          const qrRes = await fetch(`/api/info?ip=${encodeURIComponent(selectedVal)}&room=${encodeURIComponent(currentRoomId)}`);
           const data = await qrRes.json();
           if (data.qrDataUrl) {
             qrImg.src = data.qrDataUrl;
@@ -448,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/send-to-mobile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename })
+        body: JSON.stringify({ filename, roomId: currentRoomId })
       });
       const data = await res.json();
       if (data.success) {
@@ -739,8 +813,9 @@ document.addEventListener('DOMContentLoaded', () => {
     statusText.textContent = `Uploading ${files.length} file(s)...`;
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload?sender=pc', true);
+    xhr.open('POST', `/api/upload?sender=pc&room=${encodeURIComponent(currentRoomId)}`, true);
     xhr.setRequestHeader('X-Sender', 'pc');
+    xhr.setRequestHeader('X-Room-Id', currentRoomId);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -775,16 +850,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ws.onopen = () => {
       console.log('Connected to DropFile WebSocket');
+      ws.send(JSON.stringify({
+        type: 'join_room',
+        roomId: currentRoomId,
+        role: 'pc'
+      }));
     };
 
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
 
+        if (msg.type === 'room_status' || msg.type === 'room_joined') {
+          const statusPill = document.getElementById('connectionStatus');
+          const statusText = document.getElementById('statusText');
+          if (statusPill && statusText) {
+            if (msg.mobileCount > 0 || msg.isPaired) {
+              statusPill.style.background = 'rgba(0, 242, 254, 0.12)';
+              statusPill.style.borderColor = 'rgba(0, 242, 254, 0.3)';
+              statusPill.style.color = '#00f2fe';
+              statusText.textContent = '🟢 Paired with Mobile';
+              showToast('Mobile phone paired with your PC room!', '📱');
+            } else {
+              statusText.textContent = `Room: ${currentRoomId} (Waiting)`;
+            }
+          }
+        }
+
         if (msg.type === 'client_connected') {
           const statusPill = document.getElementById('connectionStatus');
           const statusText = document.getElementById('statusText');
-          if (msg.isMobile) {
+          if (msg.isMobile && statusPill && statusText) {
             statusPill.style.background = 'rgba(0, 242, 254, 0.12)';
             statusPill.style.borderColor = 'rgba(0, 242, 254, 0.3)';
             statusPill.style.color = '#00f2fe';
@@ -803,8 +899,10 @@ document.addEventListener('DOMContentLoaded', () => {
           allFiles.unshift(msg.file);
           renderFiles();
 
-          // Automatically save file to PC Downloads folder
-          if (autoSaveToPc && msg.file) {
+          // Save directly to chosen PC folder or browser Downloads folder
+          if (chosenDirectoryHandle) {
+            saveFileDirectlyToPcFolder(msg.file);
+          } else if (autoSaveToPc && msg.file) {
             triggerBrowserDownload(msg.file);
           }
         }

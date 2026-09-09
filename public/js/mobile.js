@@ -11,6 +11,100 @@ function initMobileApp() {
   } catch (e) {}
   const toastContainer = document.getElementById('toastContainer');
 
+  // Room Pairing for Mobile (Zero Database, In-Memory 1-to-1 Pairing)
+  const urlParams = new URLSearchParams(window.location.search);
+  let currentRoomId = (urlParams.get('room') || localStorage.getItem('vshare_room_id') || '').trim();
+  if (urlParams.get('room')) {
+    localStorage.setItem('vshare_room_id', currentRoomId);
+  }
+
+  function updateRoomPairingUi(roomId, isPaired = false) {
+    const roomStatusDot = document.getElementById('roomStatusDot');
+    const roomStatusTitle = document.getElementById('roomStatusTitle');
+    const roomStatusSubtitle = document.getElementById('roomStatusSubtitle');
+    const mobileRoomCodeText = document.getElementById('mobileRoomCodeText');
+    
+    if (mobileRoomCodeText) {
+      if (roomId) {
+        mobileRoomCodeText.textContent = roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId;
+      } else {
+        mobileRoomCodeText.textContent = 'Not Paired';
+      }
+    }
+
+    if (roomStatusTitle) {
+      if (roomId) {
+        roomStatusTitle.textContent = isPaired ? '🟢 Paired with Your PC' : '⏳ Waiting for PC...';
+      } else {
+        roomStatusTitle.textContent = 'Tap to Pair with Your PC';
+      }
+    }
+
+    if (roomStatusSubtitle) {
+      if (roomId) {
+        roomStatusSubtitle.innerHTML = `Pairing Code: <span style="color: #60a5fa; font-weight: 700; font-family: monospace;">${roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId}</span>`;
+      } else {
+        roomStatusSubtitle.textContent = 'Enter the 6-digit code shown on your PC';
+      }
+    }
+
+    if (roomStatusDot) {
+      if (isPaired) {
+        roomStatusDot.style.background = '#10b981';
+        roomStatusDot.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.7)';
+      } else if (roomId) {
+        roomStatusDot.style.background = '#f59e0b';
+        roomStatusDot.style.boxShadow = '0 0 10px rgba(245, 158, 11, 0.7)';
+      } else {
+        roomStatusDot.style.background = '#ef4444';
+        roomStatusDot.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.7)';
+      }
+    }
+  }
+
+  // Pair PC Modal Handling
+  const pairModal = document.getElementById('pairModal');
+  const changeRoomBtn = document.getElementById('changeRoomBtn');
+  const closePairModalBtn = document.getElementById('closePairModalBtn');
+  const manualRoomCodeInput = document.getElementById('manualRoomCodeInput');
+  const connectRoomBtn = document.getElementById('connectRoomBtn');
+
+  if (changeRoomBtn && pairModal) {
+    changeRoomBtn.addEventListener('click', () => {
+      if (manualRoomCodeInput) {
+        manualRoomCodeInput.value = currentRoomId || '';
+      }
+      pairModal.classList.add('active');
+    });
+  }
+
+  if (closePairModalBtn && pairModal) {
+    closePairModalBtn.addEventListener('click', () => pairModal.classList.remove('active'));
+  }
+
+  if (connectRoomBtn && manualRoomCodeInput) {
+    connectRoomBtn.addEventListener('click', () => {
+      const code = (manualRoomCodeInput.value || '').replace(/\s+/g, '').trim();
+      if (!code) {
+        showToast('Please enter the 6-digit code from your PC', '⚠️');
+        return;
+      }
+      currentRoomId = code;
+      localStorage.setItem('vshare_room_id', currentRoomId);
+      if (pairModal) pairModal.classList.remove('active');
+      updateRoomPairingUi(currentRoomId, false);
+      showToast(`Pairing with PC code ${currentRoomId}...`, '🔒');
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'join_room',
+          roomId: currentRoomId,
+          role: 'mobile'
+        }));
+      }
+    });
+  }
+
   // Synthesized notification chime for mobile
   function playSuccessChime() {
     try {
@@ -101,6 +195,13 @@ function initMobileApp() {
 
       ws.onopen = () => {
         setConnected(true);
+        if (currentRoomId) {
+          ws.send(JSON.stringify({
+            type: 'join_room',
+            roomId: currentRoomId,
+            role: 'mobile'
+          }));
+        }
       };
 
       ws.onclose = () => {
@@ -116,6 +217,14 @@ function initMobileApp() {
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
+          if (msg.type === 'room_status' || msg.type === 'room_joined') {
+            const isPaired = (msg.pcCount > 0) || msg.isPaired;
+            updateRoomPairingUi(currentRoomId, isPaired);
+            if (isPaired) {
+              setConnected(true);
+              showToast('🟢 Paired with your PC!', '💻');
+            }
+          }
           if (msg.type === 'clipboard_received' && msg.from === 'PC') {
             playSuccessChime();
             showToast(`PC sent: "${msg.text.substring(0, 30)}..."`, '💻');
@@ -218,7 +327,13 @@ function initMobileApp() {
     let lastTime = startTime;
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload', true);
+    const uploadUrl = currentRoomId
+      ? `/api/upload?room=${encodeURIComponent(currentRoomId)}`
+      : '/api/upload';
+    xhr.open('POST', uploadUrl, true);
+    if (currentRoomId) {
+      xhr.setRequestHeader('X-Room-Id', currentRoomId);
+    }
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -811,6 +926,7 @@ function initMobileApp() {
   // Initial render of received files and PC file count
   renderReceivedFromPc();
   updatePcFilesBadge();
+  updateRoomPairingUi(currentRoomId, false);
 
   // Check connection immediately via HTTP and start WebSocket
   checkServerHealth();
