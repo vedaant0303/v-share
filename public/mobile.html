@@ -461,7 +461,7 @@
     </header>
 
     <!-- Room / Pairing Banner -->
-    <div id="roomPairingBanner" style="background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+    <div id="roomPairingBanner" style="background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
       <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
         <span id="roomStatusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.7); flex-shrink: 0;"></span>
         <div style="min-width: 0;">
@@ -473,9 +473,15 @@
           </div>
         </div>
       </div>
-      <button id="changeRoomBtn" type="button" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; flex-shrink: 0;">
-        Pair New PC
-      </button>
+      <div style="display: flex; gap: 6px; flex-shrink: 0;">
+        <button id="openScannerBtn" type="button" style="background: linear-gradient(135deg, #00f2fe 0%, #2563eb 100%); border: none; color: #07101e; font-size: 12px; font-weight: 800; padding: 7px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0, 242, 254, 0.3);">
+          <span>📷</span>
+          <span>Scan QR</span>
+        </button>
+        <button id="changeRoomBtn" type="button" title="Enter 6-digit Code manually" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1; font-size: 12px; font-weight: 600; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
+          ⌨️
+        </button>
+      </div>
     </div>
 
     <!-- Direct Android App Download Card -->
@@ -732,18 +738,47 @@
     </div>
   </div>
 
-  <!-- Pair PC Code Modal -->
+  <!-- Pair PC Code & Live QR Scanner Modal -->
   <div id="pairModal" class="beam-modal">
-    <div class="beam-modal-card" style="max-width: 340px; text-align: center;">
+    <div class="beam-modal-card" style="max-width: 360px; text-align: center; max-height: 90vh; overflow-y: auto;">
       <button id="closePairModalBtn" class="beam-close-btn">&times;</button>
-      <div style="font-size: 36px; margin-bottom: 8px;">💻 🔗 📱</div>
-      <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 6px; color: #fff;">Pair with Your PC</h3>
-      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px;">
-        Enter the 6-digit code shown under the QR code on your PC screen:
+      <div style="font-size: 32px; margin-bottom: 6px;">💻 🔗 📱</div>
+      <h3 style="font-size: 17px; font-weight: 700; margin-bottom: 4px; color: #fff;">Connect to Your PC</h3>
+      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;">
+        Scan the QR code on your PC screen or enter the 6-digit code.
       </p>
-      <input type="text" id="manualRoomCodeInput" maxlength="6" placeholder="e.g. 482910" style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; font-family: monospace; letter-spacing: 4px; padding: 10px; background: #0b0f16; border: 1px solid rgba(0, 150, 255, 0.4); border-radius: 10px; color: #00f2fe; margin-bottom: 16px; box-sizing: border-box; outline: none;">
+
+      <!-- Live Camera QR Scanner Box -->
+      <div id="mobileScannerContainer" style="display: none; margin-bottom: 16px;">
+        <div style="position: relative; width: 100%; aspect-ratio: 1; max-width: 260px; margin: 0 auto; border-radius: 16px; overflow: hidden; background: #000; border: 2px solid #00f2fe; box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);">
+          <video id="mobileScannerVideo" playsinline autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+          <canvas id="mobileScannerCanvas" style="display: none;"></canvas>
+          <div style="position: absolute; inset: 20px; border: 2px dashed rgba(0, 242, 254, 0.8); border-radius: 12px; pointer-events: none;"></div>
+        </div>
+        <div id="mobileScannerFeedback" style="font-size: 12px; color: #00f2fe; margin-top: 8px; font-weight: 600;">
+          📷 Aim camera at the QR code on your PC screen...
+        </div>
+        <button id="stopScannerBtn" type="button" style="margin-top: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #e2e8f0; font-size: 12px; padding: 6px 14px; border-radius: 8px; cursor: pointer;">
+          ✖️ Stop Camera
+        </button>
+      </div>
+
+      <!-- Button to Activate Camera Scanner -->
+      <button id="startScanFromModalBtn" type="button" style="width: 100%; padding: 13px; border-radius: 12px; background: linear-gradient(135deg, #00f2fe 0%, #2563eb 100%); border: none; color: #07101e; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);">
+        <span style="font-size: 18px;">📷</span>
+        <span>Scan QR Code on PC Screen</span>
+      </button>
+
+      <div style="display: flex; align-items: center; gap: 10px; margin: 12px 0;">
+        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+        <span style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600;">or enter 6-digit code</span>
+        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+      </div>
+
+      <input type="text" id="manualRoomCodeInput" maxlength="6" placeholder="e.g. 482910" style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; font-family: monospace; letter-spacing: 4px; padding: 10px; background: #0b0f16; border: 1px solid rgba(0, 150, 255, 0.4); border-radius: 10px; color: #00f2fe; margin-bottom: 12px; box-sizing: border-box; outline: none;">
+      
       <button id="connectRoomBtn" type="button" style="width: 100%; padding: 12px; border-radius: 10px; background: #2563eb; border: none; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;">
-        🔗 Pair with PC
+        🔗 Connect by Code
       </button>
     </div>
   </div>
@@ -751,6 +786,7 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="/js/mobile.js?v=13"></script>
+  <script src="/js/jsQR.js"></script>
+  <script src="/js/mobile.js?v=14"></script>
 </body>
 </html>

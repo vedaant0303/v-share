@@ -62,24 +62,174 @@ function initMobileApp() {
     }
   }
 
-  // Pair PC Modal Handling
+  // Pair PC Modal & Live Camera Scanner Handling
   const pairModal = document.getElementById('pairModal');
   const changeRoomBtn = document.getElementById('changeRoomBtn');
+  const openScannerBtn = document.getElementById('openScannerBtn');
   const closePairModalBtn = document.getElementById('closePairModalBtn');
   const manualRoomCodeInput = document.getElementById('manualRoomCodeInput');
   const connectRoomBtn = document.getElementById('connectRoomBtn');
+  const startScanFromModalBtn = document.getElementById('startScanFromModalBtn');
+  const stopScannerBtn = document.getElementById('stopScannerBtn');
+  const mobileScannerContainer = document.getElementById('mobileScannerContainer');
+  const mobileScannerVideo = document.getElementById('mobileScannerVideo');
+  const mobileScannerCanvas = document.getElementById('mobileScannerCanvas');
+  const mobileScannerFeedback = document.getElementById('mobileScannerFeedback');
+
+  let mobileCameraStream = null;
+  let mobileScanAnimId = null;
+  let isScanningQr = false;
+
+  async function startMobileQrScanner() {
+    if (pairModal) pairModal.classList.add('active');
+    if (mobileScannerContainer) mobileScannerContainer.style.display = 'block';
+    if (startScanFromModalBtn) startScanFromModalBtn.style.display = 'none';
+    if (mobileScannerFeedback) {
+      mobileScannerFeedback.textContent = 'Opening camera...';
+      mobileScannerFeedback.style.color = '#00f2fe';
+    }
+
+    try {
+      mobileCameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      if (mobileScannerVideo) {
+        mobileScannerVideo.srcObject = mobileCameraStream;
+        await mobileScannerVideo.play();
+      }
+      isScanningQr = true;
+      if (mobileScannerFeedback) {
+        mobileScannerFeedback.textContent = '📷 Aim at the QR code on your PC screen!';
+      }
+      requestAnimationFrame(scanMobileVideoFrame);
+    } catch (err) {
+      console.error('Camera access error:', err);
+      if (mobileScannerFeedback) {
+        mobileScannerFeedback.textContent = '❌ Camera permission denied. Please enter the 6-digit code below.';
+        mobileScannerFeedback.style.color = '#f87171';
+      }
+      showToast('Camera permission denied. Use 6-digit code below.', '⚠️');
+    }
+  }
+
+  function stopMobileQrScanner() {
+    isScanningQr = false;
+    if (mobileScanAnimId) {
+      cancelAnimationFrame(mobileScanAnimId);
+      mobileScanAnimId = null;
+    }
+    if (mobileCameraStream) {
+      mobileCameraStream.getTracks().forEach(track => track.stop());
+      mobileCameraStream = null;
+    }
+    if (mobileScannerVideo) {
+      mobileScannerVideo.srcObject = null;
+    }
+    if (mobileScannerContainer) mobileScannerContainer.style.display = 'none';
+    if (startScanFromModalBtn) startScanFromModalBtn.style.display = 'flex';
+  }
+
+  function scanMobileVideoFrame() {
+    if (!isScanningQr || !mobileCameraStream || !mobileScannerVideo || mobileScannerVideo.readyState !== mobileScannerVideo.HAVE_ENOUGH_DATA) {
+      if (isScanningQr) {
+        mobileScanAnimId = requestAnimationFrame(scanMobileVideoFrame);
+      }
+      return;
+    }
+
+    const canvas = mobileScannerCanvas;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    canvas.width = mobileScannerVideo.videoWidth;
+    canvas.height = mobileScannerVideo.videoHeight;
+
+    ctx.drawImage(mobileScannerVideo, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (window.jsQR) {
+      const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert'
+      });
+
+      if (code && code.data) {
+        handleMobileQrDetected(code.data);
+        return;
+      }
+    }
+
+    mobileScanAnimId = requestAnimationFrame(scanMobileVideoFrame);
+  }
+
+  function handleMobileQrDetected(rawData) {
+    let extractedRoom = null;
+    const data = String(rawData).trim();
+
+    if (data.includes('room=')) {
+      const match = data.match(/room=([0-9a-zA-Z_-]+)/);
+      if (match && match[1]) extractedRoom = match[1];
+    } else if (/^\d{6}$/.test(data)) {
+      extractedRoom = data;
+    } else if (data.startsWith('http')) {
+      try {
+        const u = new URL(data);
+        extractedRoom = u.searchParams.get('room');
+      } catch (e) {}
+    }
+
+    if (extractedRoom) {
+      stopMobileQrScanner();
+      currentRoomId = extractedRoom;
+      localStorage.setItem('vshare_room_id', currentRoomId);
+      updateRoomPairingUi(currentRoomId, true);
+      playSuccessChime();
+      if (pairModal) pairModal.classList.remove('active');
+      showToast(`🎉 Paired with PC (Code: ${currentRoomId})!`, '📱');
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'join_room',
+          roomId: currentRoomId,
+          role: 'mobile'
+        }));
+      }
+    } else {
+      mobileScanAnimId = requestAnimationFrame(scanMobileVideoFrame);
+    }
+  }
+
+  if (openScannerBtn) {
+    openScannerBtn.addEventListener('click', () => {
+      startMobileQrScanner();
+    });
+  }
+
+  if (startScanFromModalBtn) {
+    startScanFromModalBtn.addEventListener('click', () => {
+      startMobileQrScanner();
+    });
+  }
+
+  if (stopScannerBtn) {
+    stopScannerBtn.addEventListener('click', () => {
+      stopMobileQrScanner();
+    });
+  }
 
   if (changeRoomBtn && pairModal) {
     changeRoomBtn.addEventListener('click', () => {
       if (manualRoomCodeInput) {
         manualRoomCodeInput.value = currentRoomId || '';
       }
+      stopMobileQrScanner();
       pairModal.classList.add('active');
     });
   }
 
   if (closePairModalBtn && pairModal) {
-    closePairModalBtn.addEventListener('click', () => pairModal.classList.remove('active'));
+    closePairModalBtn.addEventListener('click', () => {
+      stopMobileQrScanner();
+      pairModal.classList.remove('active');
+    });
   }
 
   if (connectRoomBtn && manualRoomCodeInput) {
@@ -89,6 +239,7 @@ function initMobileApp() {
         showToast('Please enter the 6-digit code from your PC', '⚠️');
         return;
       }
+      stopMobileQrScanner();
       currentRoomId = code;
       localStorage.setItem('vshare_room_id', currentRoomId);
       if (pairModal) pairModal.classList.remove('active');
