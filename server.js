@@ -183,17 +183,17 @@ function initRemoteInputBridge() {
   const csSourcePath = path.join(__dirname, 'bin', 'VRemoteInput.cs');
 
   let binPath = null;
-  if (fs.existsSync(localExePath)) {
-    binPath = localExePath;
-  } else if (fs.existsSync(binExePath)) {
-    // Copy to LocalAppData to avoid OneDrive locks
+  if (fs.existsSync(binExePath)) {
     try {
       if (!fs.existsSync(localAppDataDir)) fs.mkdirSync(localAppDataDir, { recursive: true });
       fs.copyFileSync(binExePath, localExePath);
       binPath = localExePath;
     } catch (e) {
-      binPath = binExePath; // fallback
+      binPath = binExePath; // fallback directly to workspace binary
     }
+  } else if (fs.existsSync(localExePath)) {
+    binPath = localExePath;
+  }
   } else if (fs.existsSync(csSourcePath)) {
     // Auto-compile from source
     console.log('[RemoteInput] Compiling VRemoteInput.cs...');

@@ -29,9 +29,7 @@ public class VRemoteInput {
 
     // --- BitBlt Screen Capture (works in background sessions) ---
     [DllImport("user32.dll")]
-    static extern IntPtr GetDesktopWindow();
-    [DllImport("user32.dll")]
-    static extern IntPtr GetWindowDC(IntPtr hWnd);
+    static extern IntPtr GetDC(IntPtr hWnd);
     [DllImport("user32.dll")]
     static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
     [DllImport("gdi32.dll")]
@@ -52,6 +50,7 @@ public class VRemoteInput {
     const int SM_CXSCREEN = 0;
     const int SM_CYSCREEN = 1;
     const int SRCCOPY = 0x00CC0020;
+    const int CAPTUREBLT = 0x40000000;
 
     // Capture thread state
     static volatile bool capturing = false;
@@ -61,22 +60,51 @@ public class VRemoteInput {
     static readonly object consoleLock = new object();
 
     static Bitmap CaptureScreenBitBlt() {
-        int w = GetSystemMetrics(SM_CXSCREEN);
-        int h = GetSystemMetrics(SM_CYSCREEN);
-        IntPtr hDesktop = GetDesktopWindow();
-        IntPtr hDC = GetWindowDC(hDesktop);
+        int screenW = GetSystemMetrics(SM_CXSCREEN);
+        int screenH = GetSystemMetrics(SM_CYSCREEN);
+        if (screenW <= 0) screenW = 1920;
+        if (screenH <= 0) screenH = 1080;
+
+        IntPtr hDC = GetDC(IntPtr.Zero);
         IntPtr hMemDC = CreateCompatibleDC(hDC);
-        IntPtr hBmp = CreateCompatibleBitmap(hDC, w, h);
+        IntPtr hBmp = CreateCompatibleBitmap(hDC, screenW, screenH);
         IntPtr hOld = SelectObject(hMemDC, hBmp);
-        BitBlt(hMemDC, 0, 0, w, h, hDC, 0, 0, SRCCOPY);
+        BitBlt(hMemDC, 0, 0, screenW, screenH, hDC, 0, 0, SRCCOPY | CAPTUREBLT);
         SelectObject(hMemDC, hOld);
 
-        Bitmap bmp = Image.FromHbitmap(hBmp);
+        int targetW = screenW;
+        int targetH = screenH;
+        if (targetW > 1280) {
+            targetH = (int)((double)screenH * 1280.0 / screenW);
+            targetW = 1280;
+        }
+
+        Bitmap result = new Bitmap(targetW, targetH, PixelFormat.Format24bppRgb);
+        using (Bitmap raw = Image.FromHbitmap(hBmp)) {
+            using (Graphics g = Graphics.FromImage(result)) {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.DrawImage(raw, new Rectangle(0, 0, targetW, targetH), 0, 0, raw.Width, raw.Height, GraphicsUnit.Pixel);
+
+                // Draw cursor indicator on captured frame
+                try {
+                    Point cur = Cursor.Position;
+                    int curX = (int)((double)cur.X * targetW / screenW);
+                    int curY = (int)((double)cur.Y * targetH / screenH);
+                    using (SolidBrush cursorBrush = new SolidBrush(Color.FromArgb(230, 239, 68, 68))) {
+                        g.FillEllipse(cursorBrush, curX - 4, curY - 4, 8, 8);
+                    }
+                    using (Pen cursorBorder = new Pen(Color.White, 1.5f)) {
+                        g.DrawEllipse(cursorBorder, curX - 4, curY - 4, 8, 8);
+                    }
+                } catch {}
+            }
+        }
 
         DeleteObject(hBmp);
         DeleteDC(hMemDC);
-        ReleaseDC(hDesktop, hDC);
-        return bmp;
+        ReleaseDC(IntPtr.Zero, hDC);
+        return result;
     }
 
     static void CaptureLoop() {

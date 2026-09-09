@@ -619,12 +619,23 @@ function initMobileApp() {
           }
           const frameData = msg.frame || msg.data;
           if (msg.type === 'remote_frame' && frameData) {
+            const screenImg = document.getElementById('remoteScreenImg');
             const canvas = document.getElementById('remoteScreenCanvas');
             const waiting = document.getElementById('remoteWaitingCard');
+            const lockedNotice = document.getElementById('remoteLockedNotice');
+
             if (waiting && waiting.style.display !== 'none') {
               waiting.style.display = 'none';
               showToast('🟢 Unattended Remote PC Desktop Active!', '🖥️');
             }
+
+            // Direct hardware-accelerated image blitting for Android & iOS
+            if (screenImg) {
+              screenImg.src = 'data:image/jpeg;base64,' + frameData;
+              if (screenImg.style.display !== 'block') screenImg.style.display = 'block';
+            }
+
+            // Canvas fallback
             if (canvas) {
               canvas.style.display = 'block';
               const ctx = canvas.getContext('2d');
@@ -637,6 +648,15 @@ function initMobileApp() {
                 ctx.drawImage(img, 0, 0);
               };
               img.src = 'data:image/jpeg;base64,' + frameData;
+            }
+
+            if (lockedNotice) {
+              // Frames under 3.5KB indicate black frame from locked or asleep Windows session
+              if (frameData.length < 3500) {
+                lockedNotice.style.display = 'block';
+              } else {
+                lockedNotice.style.display = 'none';
+              }
             }
           }
           if (msg.type === 'remote_stop') {
@@ -1552,7 +1572,11 @@ function initMobileApp() {
   }
 
   function handleRemoteSessionStopped() {
+    const screenImg = document.getElementById('remoteScreenImg');
     const canvas = document.getElementById('remoteScreenCanvas');
+    const lockedNotice = document.getElementById('remoteLockedNotice');
+    if (screenImg) screenImg.style.display = 'none';
+    if (lockedNotice) lockedNotice.style.display = 'none';
     if (canvas) {
       canvas.style.display = 'none';
       const ctx = canvas.getContext('2d');
@@ -1573,7 +1597,9 @@ function initMobileApp() {
 
   // --- Accurate Touchscreen Mapping Helper ---
   function getNormalizedTouchCoords(touch) {
+    const screenImg = document.getElementById('remoteScreenImg');
     const canvas = document.getElementById('remoteScreenCanvas');
+    const isImgActive = screenImg && screenImg.style.display !== 'none' && screenImg.naturalWidth > 0;
     const isCanvasActive = canvas && canvas.style.display !== 'none' && canvas.width > 0;
 
     const rect = remoteTouchSurface.getBoundingClientRect();
@@ -1583,7 +1609,10 @@ function initMobileApp() {
     let contentW = 1920;
     let contentH = 1080;
 
-    if (isCanvasActive) {
+    if (isImgActive) {
+      contentW = screenImg.naturalWidth;
+      contentH = screenImg.naturalHeight;
+    } else if (isCanvasActive) {
       contentW = canvas.width;
       contentH = canvas.height;
     } else if (remoteScreenVideo && remoteScreenVideo.videoWidth) {
