@@ -1476,11 +1476,7 @@ function initMobileApp() {
         roomId: currentRoomId,
         role: 'mobile'
       }));
-      ws.send(JSON.stringify({
-        type: 'remote_start_request',
-        role: 'mobile'
-      }));
-      showToast('Connecting to PC Screen...', '🖥️');
+      showToast('Connecting to PC Desktop...', '🖥️');
     } else {
       showToast('Connecting to PC first...', '⏳');
     }
