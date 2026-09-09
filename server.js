@@ -180,19 +180,37 @@ function handleRemoteInputEvent(event) {
 
   try {
     const action = event.action;
-    if (action === 'move' && typeof event.x === 'number' && typeof event.y === 'number') {
-      const px = Math.min(Math.max(Math.round(event.x * screenWidth), 0), screenWidth - 1);
-      const py = Math.min(Math.max(Math.round(event.y * screenHeight), 0), screenHeight - 1);
+    let px = null;
+    let py = null;
+
+    if (typeof event.x === 'number' && typeof event.y === 'number') {
+      px = Math.min(Math.max(Math.round(event.x * screenWidth), 0), screenWidth - 1);
+      py = Math.min(Math.max(Math.round(event.y * screenHeight), 0), screenHeight - 1);
+    }
+
+    if (action === 'move' && px !== null && py !== null) {
       remoteInputProcess.stdin.write(`move ${px} ${py}\n`);
     } else if (action === 'click') {
       const btn = event.button || 'left';
-      remoteInputProcess.stdin.write(`click ${btn}\n`);
+      if (px !== null && py !== null) {
+        remoteInputProcess.stdin.write(`click ${btn} ${px} ${py}\n`);
+      } else {
+        remoteInputProcess.stdin.write(`click ${btn}\n`);
+      }
     } else if (action === 'down') {
       const btn = event.button || 'left';
-      remoteInputProcess.stdin.write(`down ${btn}\n`);
+      if (px !== null && py !== null) {
+        remoteInputProcess.stdin.write(`down ${btn} ${px} ${py}\n`);
+      } else {
+        remoteInputProcess.stdin.write(`down ${btn}\n`);
+      }
     } else if (action === 'up') {
       const btn = event.button || 'left';
-      remoteInputProcess.stdin.write(`up ${btn}\n`);
+      if (px !== null && py !== null) {
+        remoteInputProcess.stdin.write(`up ${btn} ${px} ${py}\n`);
+      } else {
+        remoteInputProcess.stdin.write(`up ${btn}\n`);
+      }
     } else if (action === 'scroll' && typeof event.delta === 'number') {
       remoteInputProcess.stdin.write(`scroll ${Math.round(event.delta)}\n`);
     } else if (action === 'key' && event.key) {
@@ -292,20 +310,21 @@ wss.on('connection', (ws, req) => {
 
       // Remote Desktop / OS Sharing Handlers
       if (data.type === 'remote_start_request' || data.type === 'remote_stop' ||
-          data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate') {
-        if (ws.roomId) {
-          broadcastToRoom(ws.roomId, data, ws);
+          data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' ||
+          data.type === 'remote_input') {
+        if (data.type === 'remote_input') {
+          handleRemoteInputEvent(data);
+        }
+
+        const targetRoom = data.roomId || ws.roomId;
+        if (targetRoom && rooms.has(targetRoom)) {
+          broadcastToRoom(targetRoom, data, ws);
         } else {
           broadcast(data, ws);
         }
         if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
           activeCloudBridgeWs.send(JSON.stringify(data));
         }
-        return;
-      }
-
-      if (data.type === 'remote_input') {
-        handleRemoteInputEvent(data);
         return;
       }
     } catch (err) {
@@ -1267,6 +1286,7 @@ server.listen(PORT, '0.0.0.0', () => {
           const msg = JSON.parse(data);
 
           if (msg.type === 'remote_input') {
+            console.log(`🖱️ [Cloud Bridge] Remote input action: ${msg.action} (${msg.button || ''})`);
             handleRemoteInputEvent(msg);
             return;
           }

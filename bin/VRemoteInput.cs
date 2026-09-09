@@ -48,27 +48,48 @@ public class VRemoteInput {
                     Cursor.Position = new Point(x, y);
                 } else if (cmd == "click") {
                     string btn = parts.Length > 1 ? parts[1].ToLowerInvariant() : "left";
+                    if (parts.Length >= 4) {
+                        int x = int.Parse(parts[2]);
+                        int y = int.Parse(parts[3]);
+                        Cursor.Position = new Point(x, y);
+                    }
                     if (btn == "left") {
                         mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                        System.Threading.Thread.Sleep(20);
                         mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
                     } else if (btn == "right") {
                         mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
+                        System.Threading.Thread.Sleep(20);
                         mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
                     } else if (btn == "middle") {
                         mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0);
+                        System.Threading.Thread.Sleep(20);
                         mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0);
                     } else if (btn == "double") {
                         mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                        System.Threading.Thread.Sleep(20);
                         mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                        System.Threading.Thread.Sleep(60);
                         mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                        System.Threading.Thread.Sleep(20);
                         mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
                     }
                 } else if (cmd == "down") {
                     string btn = parts.Length > 1 ? parts[1].ToLowerInvariant() : "left";
+                    if (parts.Length >= 4) {
+                        int x = int.Parse(parts[2]);
+                        int y = int.Parse(parts[3]);
+                        Cursor.Position = new Point(x, y);
+                    }
                     if (btn == "left") mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
                     else if (btn == "right") mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
                 } else if (cmd == "up") {
                     string btn = parts.Length > 1 ? parts[1].ToLowerInvariant() : "left";
+                    if (parts.Length >= 4) {
+                        int x = int.Parse(parts[2]);
+                        int y = int.Parse(parts[3]);
+                        Cursor.Position = new Point(x, y);
+                    }
                     if (btn == "left") mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
                     else if (btn == "right") mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
                 } else if (cmd == "scroll" && parts.Length >= 2) {

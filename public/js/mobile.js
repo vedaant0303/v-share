@@ -1362,6 +1362,7 @@ function initMobileApp() {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         type: 'remote_input',
+        roomId: currentRoomId,
         ...payload
       }));
     }
@@ -1618,6 +1619,7 @@ function initMobileApp() {
 
         const coords = getNormalizedTouchCoords(t);
         showTouchRipple(t.clientX, t.clientY);
+        sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
 
         // Long press detection for Right Click (500ms)
         clearTimeout(longPressTimer);
@@ -1625,8 +1627,7 @@ function initMobileApp() {
           if (!isDragging) {
             isLongPressTriggered = true;
             if (navigator.vibrate) navigator.vibrate(40);
-            sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
-            sendRemoteInput({ action: 'click', button: 'right' });
+            sendRemoteInput({ action: 'click', button: 'right', x: coords.x, y: coords.y });
             showToast('Right Click 🖱️', '⚡');
           }
         }, 500);
@@ -1653,7 +1654,7 @@ function initMobileApp() {
 
           if (!isDragging) {
             isDragging = true;
-            sendRemoteInput({ action: 'down', button: 'left' });
+            sendRemoteInput({ action: 'down', button: 'left', x: coords.x, y: coords.y });
           }
 
           if (now - lastSendTime > 16) {
@@ -1680,7 +1681,8 @@ function initMobileApp() {
       if (e.touches.length === 0) {
         if (isDragging) {
           // Release mouse drag
-          sendRemoteInput({ action: 'up', button: 'left' });
+          const coords = getNormalizedTouchCoords({ clientX: lastTouchX, clientY: lastTouchY });
+          sendRemoteInput({ action: 'up', button: 'left', x: coords.x, y: coords.y });
           isDragging = false;
         } else if (!isLongPressTriggered && duration < 400) {
           // Tap detected! Check if double-tap
@@ -1691,12 +1693,10 @@ function initMobileApp() {
           const coords = getNormalizedTouchCoords({ clientX: lastTouchX, clientY: lastTouchY });
 
           if (isDouble) {
-            sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
-            sendRemoteInput({ action: 'click', button: 'double' });
+            sendRemoteInput({ action: 'click', button: 'double', x: coords.x, y: coords.y });
             lastTapTime = 0;
           } else {
-            sendRemoteInput({ action: 'move', x: coords.x, y: coords.y });
-            sendRemoteInput({ action: 'click', button: 'left' });
+            sendRemoteInput({ action: 'click', button: 'left', x: coords.x, y: coords.y });
             lastTapTime = now;
             lastTapX = lastTouchX;
             lastTapY = lastTouchY;
