@@ -7,7 +7,14 @@ using System.Threading;
 using System.Windows.Forms;
 
 public class VRemoteInput {
-    // --- Mouse Events ---
+    // --- DPI Awareness ---
+    [DllImport("user32.dll")]
+    static extern bool SetProcessDPIAware();
+
+    // --- Mouse Events & Cursor Control ---
+    [DllImport("user32.dll")]
+    static extern bool SetCursorPos(int X, int Y);
+
     [DllImport("user32.dll")]
     static extern void mouse_event(int dwFlags, int dx, int dy, int cButtons, int dwExtraInfo);
     const int MOUSEEVENTF_LEFTDOWN = 0x02;
@@ -45,8 +52,8 @@ public class VRemoteInput {
     // Capture thread state
     static volatile bool capturing = false;
     static Thread captureThread = null;
-    static int captureFps = 15;
-    static int captureQuality = 40;
+    static int captureFps = 10;
+    static int captureQuality = 35;
     static readonly object consoleLock = new object();
 
     static Bitmap CaptureScreenBitBlt() {
@@ -107,6 +114,11 @@ public class VRemoteInput {
     }
 
     public static void Main(string[] args) {
+        // Enable true DPI awareness for 100% accurate coordinate mapping on scaled Windows displays
+        try {
+            SetProcessDPIAware();
+        } catch {}
+
         Console.WriteLine("V-REMOTE-READY");
         Console.Out.Flush();
 
@@ -121,12 +133,16 @@ public class VRemoteInput {
                 if (cmd == "move" && parts.Length >= 3) {
                     int x = int.Parse(parts[1]);
                     int y = int.Parse(parts[2]);
+                    SetCursorPos(x, y);
                     Cursor.Position = new Point(x, y);
 
                 } else if (cmd == "click") {
                     string btn = parts.Length > 1 ? parts[1] : "left";
                     if (parts.Length >= 4) {
-                        Cursor.Position = new Point(int.Parse(parts[2]), int.Parse(parts[3]));
+                        int x = int.Parse(parts[2]);
+                        int y = int.Parse(parts[3]);
+                        SetCursorPos(x, y);
+                        Cursor.Position = new Point(x, y);
                     }
                     if (btn == "left") {
                         mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
@@ -149,14 +165,20 @@ public class VRemoteInput {
                 } else if (cmd == "down") {
                     string btn = parts.Length > 1 ? parts[1] : "left";
                     if (parts.Length >= 4) {
-                        Cursor.Position = new Point(int.Parse(parts[2]), int.Parse(parts[3]));
+                        int x = int.Parse(parts[2]);
+                        int y = int.Parse(parts[3]);
+                        SetCursorPos(x, y);
+                        Cursor.Position = new Point(x, y);
                     }
                     mouse_event(btn == "right" ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
 
                 } else if (cmd == "up") {
                     string btn = parts.Length > 1 ? parts[1] : "left";
                     if (parts.Length >= 4) {
-                        Cursor.Position = new Point(int.Parse(parts[2]), int.Parse(parts[3]));
+                        int x = int.Parse(parts[2]);
+                        int y = int.Parse(parts[3]);
+                        SetCursorPos(x, y);
+                        Cursor.Position = new Point(x, y);
                     }
                     mouse_event(btn == "right" ? MOUSEEVENTF_RIGHTUP : MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
 
@@ -177,11 +199,10 @@ public class VRemoteInput {
                     }
 
                 } else if (cmd == "capture") {
-                    // capture start <fps> <quality>  OR  capture stop  OR  capture <filepath>
                     if (parts.Length >= 2 && parts[1].ToLower() == "start") {
                         if (!capturing) {
-                            captureFps = parts.Length >= 3 ? int.Parse(parts[2]) : 15;
-                            captureQuality = parts.Length >= 4 ? int.Parse(parts[3]) : 40;
+                            captureFps = parts.Length >= 3 ? int.Parse(parts[2]) : 10;
+                            captureQuality = parts.Length >= 4 ? int.Parse(parts[3]) : 35;
                             capturing = true;
                             captureThread = new Thread(CaptureLoop);
                             captureThread.IsBackground = true;
@@ -198,7 +219,6 @@ public class VRemoteInput {
                             captureThread = null;
                         }
                     } else if (parts.Length >= 2) {
-                        // One-shot capture to file
                         string outPath = parts[1];
                         using (Bitmap bmp = CaptureScreenBitBlt()) {
                             bmp.Save(outPath, ImageFormat.Jpeg);

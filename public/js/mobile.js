@@ -1737,11 +1737,11 @@ function initMobileApp() {
           const coords = getNormalizedTouchCoords({ clientX: lastTouchX, clientY: lastTouchY });
           sendRemoteInput({ action: 'up', button: 'left', x: coords.x, y: coords.y });
           isDragging = false;
-        } else if (!isLongPressTriggered && duration < 400) {
+        } else if (!isLongPressTriggered) {
           // Tap detected! Check if double-tap
           const now = Date.now();
           const distFromLastTap = Math.hypot(lastTouchX - lastTapX, lastTouchY - lastTapY);
-          const isDouble = (now - lastTapTime < 320) && (distFromLastTap < 30);
+          const isDouble = (now - lastTapTime < 380) && (distFromLastTap < 40);
 
           const coords = getNormalizedTouchCoords({ clientX: lastTouchX, clientY: lastTouchY });
 
