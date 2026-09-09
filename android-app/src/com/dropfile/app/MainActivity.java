@@ -32,6 +32,8 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_URL = "http://192.168.0.101:4000";
     private static final int REQUEST_PICK_FILE = 1001;
     private static final int REQUEST_FILE_CHOOSER = 1002;
+    private static final int REQUEST_CAMERA_PERMISSION = 1003;
+    private android.webkit.PermissionRequest mPendingPermissionRequest;
 
     private EditText ipInput;
     private TextView statusText;
@@ -46,6 +48,11 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Check & request Camera permission for QR scanning
+        if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+        }
 
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
@@ -160,7 +167,12 @@ public class MainActivity extends Activity {
             @Override
             public void onPermissionRequest(final android.webkit.PermissionRequest request) {
                 runOnUiThread(() -> {
-                    request.grant(request.getResources());
+                    if (checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        request.grant(request.getResources());
+                    } else {
+                        mPendingPermissionRequest = request;
+                        requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+                    }
                 });
             }
 
@@ -371,6 +383,25 @@ public class MainActivity extends Activity {
                 shareIntent.setAction(Intent.ACTION_SEND);
                 shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
                 startActivity(shareIntent);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                if (mPendingPermissionRequest != null) {
+                    mPendingPermissionRequest.grant(mPendingPermissionRequest.getResources());
+                    mPendingPermissionRequest = null;
+                }
+            } else {
+                if (mPendingPermissionRequest != null) {
+                    mPendingPermissionRequest.deny();
+                    mPendingPermissionRequest = null;
+                }
+                Toast.makeText(this, "Camera permission needed for QR scan", Toast.LENGTH_SHORT).show();
             }
         }
     }

@@ -245,9 +245,15 @@ function initMobileApp() {
     }
 
     try {
-      mobileCameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      try {
+        mobileCameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }
+        });
+      } catch (err1) {
+        console.warn('FacingMode constraint failed, trying basic video:', err1);
+        mobileCameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
       if (mobileScannerVideo) {
         mobileScannerVideo.srcObject = mobileCameraStream;
         mobileScannerVideo.setAttribute('playsinline', '');
@@ -258,7 +264,7 @@ function initMobileApp() {
         } catch (err) {
           console.warn('Video play blocked, waiting for user click:', err);
           if (mobileScannerFeedback) {
-            mobileScannerFeedback.textContent = '▶️ Tap on the black box above to start camera view';
+            mobileScannerFeedback.textContent = '▶️ Tap on the box above to start camera view';
           }
         }
       }
@@ -270,16 +276,56 @@ function initMobileApp() {
     } catch (err) {
       console.error('Camera access error:', err);
       if (mobileScannerFeedback) {
-        mobileScannerFeedback.textContent = '❌ Camera permission denied. Please enter the 6-digit code below.';
+        mobileScannerFeedback.textContent = '❌ Camera permission denied or not supported. Use "Snap Photo" or enter the 6-digit code below.';
         mobileScannerFeedback.style.color = '#f87171';
       }
-      showToast('Camera permission denied. Use 6-digit code below.', '⚠️');
+      showToast('Camera access blocked. Tap "Snap Photo" or use code below.', '⚠️');
     }
   }
 
   if (mobileScannerVideo) {
     mobileScannerVideo.addEventListener('click', () => {
       mobileScannerVideo.play().catch(e => console.log('Video click play:', e));
+    });
+  }
+
+  // Fallback Camera Snapshot Scanner
+  const snapshotQrInput = document.getElementById('snapshotQrInput');
+  const snapshotQrBtn = document.getElementById('snapshotQrBtn');
+
+  if (snapshotQrBtn && snapshotQrInput) {
+    snapshotQrBtn.addEventListener('click', () => {
+      snapshotQrInput.click();
+    });
+  }
+
+  if (snapshotQrInput) {
+    snapshotQrInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            if (window.jsQR) {
+              const code = window.jsQR(imgData.data, imgData.width, imgData.height);
+              if (code && code.data) {
+                handleMobileQrDetected(code.data);
+                return;
+              }
+            }
+            showToast('Could not read QR from photo. Hold camera closer or type code below.', '⚠️');
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
     });
   }
 

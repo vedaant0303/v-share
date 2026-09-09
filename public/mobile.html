@@ -781,9 +781,16 @@
       </div>
 
       <!-- Button to Activate Camera Scanner -->
-      <button id="startScanFromModalBtn" type="button" style="width: 100%; padding: 13px; border-radius: 12px; background: linear-gradient(135deg, #00f2fe 0%, #2563eb 100%); border: none; color: #07101e; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);">
+      <button id="startScanFromModalBtn" type="button" style="width: 100%; padding: 13px; border-radius: 12px; background: linear-gradient(135deg, #00f2fe 0%, #2563eb 100%); border: none; color: #07101e; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);">
         <span style="font-size: 18px;">📷</span>
-        <span>Scan QR Code on PC Screen</span>
+        <span>Open Live Camera Scanner</span>
+      </button>
+
+      <!-- Fallback Snapshot Camera Button -->
+      <input type="file" id="snapshotQrInput" accept="image/*" capture="environment" style="display: none;">
+      <button id="snapshotQrBtn" type="button" style="width: 100%; padding: 10px; border-radius: 10px; background: rgba(0, 242, 254, 0.1); border: 1px dashed rgba(0, 242, 254, 0.4); color: #00f2fe; font-size: 12.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 12px;">
+        <span>📸</span>
+        <span>Or Snap Photo with System Camera</span>
       </button>
 
       <div style="display: flex; align-items: center; gap: 10px; margin: 12px 0;">
@@ -806,6 +813,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/mobile.js?v=15"></script>
+  <script src="/js/mobile.js?v=16"></script>
 </body>
 </html>
