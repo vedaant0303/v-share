@@ -127,20 +127,50 @@ let screenHeight = 1080;
 function initRemoteInputBridge() {
   if (process.platform !== 'win32') return;
 
-  const binPath = path.join(__dirname, 'bin', 'VRemoteInput.exe');
-  if (!fs.existsSync(binPath)) {
-    console.warn('[RemoteInput] VRemoteInput.exe not found at', binPath);
+  // Try LocalAppData first (avoids OneDrive locking), then fallback to bin/
+  const localAppDataDir = path.join(process.env.LOCALAPPDATA || '', 'V-Share');
+  const localExePath = path.join(localAppDataDir, 'VRemoteInput.exe');
+  const binExePath = path.join(__dirname, 'bin', 'VRemoteInput.exe');
+  const csSourcePath = path.join(__dirname, 'bin', 'VRemoteInput.cs');
+
+  let binPath = null;
+  if (fs.existsSync(localExePath)) {
+    binPath = localExePath;
+  } else if (fs.existsSync(binExePath)) {
+    // Copy to LocalAppData to avoid OneDrive locks
+    try {
+      if (!fs.existsSync(localAppDataDir)) fs.mkdirSync(localAppDataDir, { recursive: true });
+      fs.copyFileSync(binExePath, localExePath);
+      binPath = localExePath;
+    } catch (e) {
+      binPath = binExePath; // fallback
+    }
+  } else if (fs.existsSync(csSourcePath)) {
+    // Auto-compile from source
+    console.log('[RemoteInput] Compiling VRemoteInput.cs...');
+    try {
+      if (!fs.existsSync(localAppDataDir)) fs.mkdirSync(localAppDataDir, { recursive: true });
+      const { execSync } = require('child_process');
+      execSync(`C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe /nologo /optimize /target:exe /out:"${localExePath}" /reference:System.Drawing.dll /reference:System.Windows.Forms.dll "${csSourcePath}"`, { timeout: 30000 });
+      if (fs.existsSync(localExePath)) {
+        binPath = localExePath;
+        console.log('[RemoteInput] Compiled VRemoteInput.exe successfully!');
+      }
+    } catch (e) {
+      console.warn('[RemoteInput] Failed to compile VRemoteInput.cs:', e.message);
+    }
+  }
+
+  if (!binPath) {
+    console.warn('[RemoteInput] VRemoteInput.exe not found and could not be compiled.');
     return;
   }
 
   try {
+    console.log(`[RemoteInput] Starting VRemoteInput from: ${binPath}`);
     remoteInputProcess = spawn(binPath, [], {
-      stdio: ['pipe', 'pipe', 'inherit']
+      stdio: ['pipe', 'pipe', 'pipe']
     });
-
-    try {
-      remoteInputProcess.stdin.write('screen\n');
-    } catch (e) {}
 
     let stdoutBuffer = '';
     remoteInputProcess.stdout.on('data', (data) => {
@@ -156,6 +186,7 @@ function initRemoteInputBridge() {
           const b64 = line.substring(6);
           const frameMsg = {
             type: 'remote_frame',
+            roomId: activeRemoteRoomId,
             frame: b64,
             data: b64,
             w: screenWidth,
@@ -178,8 +209,16 @@ function initRemoteInputBridge() {
           }
         } else if (line.startsWith('CAPTURE-')) {
           console.log(`🖥️ [RemoteInput] ${line}`);
+        } else if (line === 'V-REMOTE-READY') {
+          console.log('✅ [RemoteInput] VRemoteInput.exe ready and accepting commands.');
+        } else if (line.startsWith('ERR:')) {
+          console.warn(`⚠️ [RemoteInput] ${line}`);
         }
       }
+    });
+
+    remoteInputProcess.stderr.on('data', (data) => {
+      console.warn('[RemoteInput] stderr:', data.toString().trim());
     });
 
     remoteInputProcess.on('error', (err) => {
@@ -187,7 +226,8 @@ function initRemoteInputBridge() {
       remoteInputProcess = null;
     });
 
-    remoteInputProcess.on('exit', () => {
+    remoteInputProcess.on('exit', (code) => {
+      console.log(`[RemoteInput] VRemoteInput.exe exited with code ${code}`);
       remoteInputProcess = null;
     });
 
@@ -198,6 +238,7 @@ function initRemoteInputBridge() {
   }
 }
 
+
 let activeRemoteRoomId = null;
 
 function startUnattendedCapture(roomId = null) {
@@ -206,8 +247,8 @@ function startUnattendedCapture(roomId = null) {
     initRemoteInputBridge();
   }
   if (remoteInputProcess && remoteInputProcess.stdin) {
-    console.log('🖥️ [RemoteInput] Starting unattended background desktop screen capture...');
-    remoteInputProcess.stdin.write('capture start 20 60\n');
+    console.log('🖥️ [RemoteInput] Starting unattended background desktop screen capture (10 FPS, 35 Quality)...');
+    remoteInputProcess.stdin.write('capture start 10 35\n');
   }
 }
 
@@ -234,6 +275,8 @@ function handleRemoteInputEvent(event) {
       px = Math.min(Math.max(Math.round(event.x * screenWidth), 0), screenWidth - 1);
       py = Math.min(Math.max(Math.round(event.y * screenHeight), 0), screenHeight - 1);
     }
+
+    console.log(`👆 [RemoteInput] Action: ${action}, Pos: (${px}, ${py}), Button: ${event.button || 'default'}`);
 
     if (action === 'move' && px !== null && py !== null) {
       remoteInputProcess.stdin.write(`move ${px} ${py}\n`);
@@ -1382,6 +1425,7 @@ server.listen(PORT, '0.0.0.0', () => {
           }
 
           if (msg.type === 'remote_input') {
+            console.log(`👆 [Cloud Bridge] Received remote_input: ${msg.action} (${msg.x}, ${msg.y})`);
             handleRemoteInputEvent(msg);
             return;
           }

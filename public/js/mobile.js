@@ -1696,6 +1696,8 @@ function initMobileApp() {
 
       if (count === 1) {
         const t = e.touches[0];
+        lastTouchX = t.clientX;
+        lastTouchY = t.clientY;
         const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
 
         // If moved significantly, cancel long press and enter mouse drag mode
