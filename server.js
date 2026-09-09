@@ -135,9 +135,12 @@ function initRemoteInputBridge() {
 
   try {
     remoteInputProcess = spawn(binPath, [], {
-      stdio: ['pipe', 'pipe', 'inherit'],
-      windowsHide: true
+      stdio: ['pipe', 'pipe', 'inherit']
     });
+
+    try {
+      remoteInputProcess.stdin.write('screen\n');
+    } catch (e) {}
 
     let stdoutBuffer = '';
     remoteInputProcess.stdout.on('data', (data) => {
