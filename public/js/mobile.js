@@ -12,10 +12,161 @@ function initMobileApp() {
   const toastContainer = document.getElementById('toastContainer');
 
   // Room Pairing for Mobile (Zero Database, In-Memory 1-to-1 Pairing)
+  // Room & Device Management (Multi-PC 1-Tap Switching)
   const urlParams = new URLSearchParams(window.location.search);
   let currentRoomId = (urlParams.get('room') || localStorage.getItem('vshare_room_id') || '').trim();
   if (urlParams.get('room')) {
     localStorage.setItem('vshare_room_id', currentRoomId);
+  }
+
+  // Saved Target PCs: [{ id: '759721', name: 'Main PC', lastSeen: Date.now() }]
+  let savedDevices = [];
+  try {
+    savedDevices = JSON.parse(localStorage.getItem('vshare_saved_devices') || '[]');
+  } catch (e) {
+    savedDevices = [];
+  }
+
+  // Ensure current room is present in saved devices
+  if (currentRoomId) {
+    const exists = savedDevices.find(d => d.id === currentRoomId);
+    if (!exists) {
+      savedDevices.unshift({ id: currentRoomId, name: `PC ${currentRoomId}`, lastSeen: Date.now() });
+      saveDevicesToStorage();
+    }
+  }
+
+  function saveDevicesToStorage() {
+    try {
+      localStorage.setItem('vshare_saved_devices', JSON.stringify(savedDevices));
+    } catch (e) {}
+  }
+
+  function renderDeviceChips() {
+    const container = document.getElementById('deviceChipsList');
+    const dropSubtitle = document.getElementById('mobileDropSubtitle');
+    if (!container) return;
+
+    if (savedDevices.length === 0 && currentRoomId) {
+      savedDevices.push({ id: currentRoomId, name: `PC ${currentRoomId}`, lastSeen: Date.now() });
+      saveDevicesToStorage();
+    }
+
+    if (savedDevices.length === 0) {
+      container.innerHTML = `
+        <div style="font-size: 12px; color: #64748b; padding: 4px 2px;">
+          No PC added yet. Tap <b>+ Add Another PC</b> or <b>📷 Scan QR</b>!
+        </div>
+      `;
+      if (dropSubtitle) dropSubtitle.textContent = 'Pair with a PC to start dropping files';
+      return;
+    }
+
+    const activeDevice = savedDevices.find(d => d.id === currentRoomId) || savedDevices[0];
+    if (activeDevice && currentRoomId !== activeDevice.id) {
+      currentRoomId = activeDevice.id;
+      localStorage.setItem('vshare_room_id', currentRoomId);
+    }
+
+    if (dropSubtitle && activeDevice) {
+      dropSubtitle.innerHTML = `Saves directly to: <b style="color: #00f2fe;">${activeDevice.name}</b> (${activeDevice.id.length === 6 ? `${activeDevice.id.substring(0,3)} ${activeDevice.id.substring(3)}` : activeDevice.id})`;
+    }
+
+    container.innerHTML = '';
+    savedDevices.forEach(device => {
+      const isActive = (device.id === currentRoomId);
+      const chip = document.createElement('div');
+      chip.className = `pc-device-chip ${isActive ? 'active' : ''}`;
+      chip.style.cssText = `
+        flex-shrink: 0;
+        background: ${isActive ? 'rgba(0, 242, 254, 0.14)' : '#151a24'};
+        border: 1.5px solid ${isActive ? '#00f2fe' : 'rgba(255, 255, 255, 0.09)'};
+        border-radius: 12px;
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        box-shadow: ${isActive ? '0 0 14px rgba(0, 242, 254, 0.3)' : 'none'};
+        transition: all 0.2s ease;
+      `;
+
+      chip.innerHTML = `
+        <span style="font-size: 18px;">💻</span>
+        <div style="text-align: left; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <span style="font-size: 12.5px; font-weight: 700; color: ${isActive ? '#ffffff' : '#cbd5e1'}; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis;">${device.name}</span>
+            ${isActive ? '<span style="font-size: 8.5px; font-weight: 800; background: #10b981; color: #022c22; padding: 1px 5px; border-radius: 999px;">ACTIVE</span>' : ''}
+          </div>
+          <div style="font-size: 10.5px; color: ${isActive ? '#00f2fe' : '#64748b'}; font-family: monospace; font-weight: 600;">
+            ${device.id.length === 6 ? `${device.id.substring(0,3)} ${device.id.substring(3)}` : device.id}
+          </div>
+        </div>
+        ${savedDevices.length > 1 ? `<button class="delete-pc-btn" title="Remove this PC" data-id="${device.id}" style="background: none; border: none; color: #64748b; font-size: 14px; cursor: pointer; padding: 0 4px; margin-left: 2px;">&times;</button>` : ''}
+      `;
+
+      chip.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-pc-btn')) return;
+        switchActiveDevice(device.id);
+      });
+
+      container.appendChild(chip);
+    });
+
+    container.querySelectorAll('.delete-pc-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        removeDevice(id);
+      });
+    });
+  }
+
+  function switchActiveDevice(roomId) {
+    if (!roomId) return;
+    currentRoomId = roomId;
+    localStorage.setItem('vshare_room_id', currentRoomId);
+    const dev = savedDevices.find(d => d.id === roomId);
+    const name = dev ? dev.name : `PC ${roomId}`;
+
+    updateRoomPairingUi(currentRoomId, false);
+    renderDeviceChips();
+    playSuccessChime();
+    showToast(`🎯 Switched target to: ${name}!`, '💻');
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'join_room',
+        roomId: currentRoomId,
+        role: 'mobile'
+      }));
+    }
+  }
+
+  function addOrUpdateDevice(roomId, name) {
+    if (!roomId) return;
+    const cleanId = String(roomId).replace(/\s+/g, '').trim();
+    const cleanName = (name || '').trim() || `PC ${cleanId}`;
+
+    const existingIndex = savedDevices.findIndex(d => d.id === cleanId);
+    if (existingIndex >= 0) {
+      savedDevices[existingIndex].name = cleanName;
+      savedDevices[existingIndex].lastSeen = Date.now();
+    } else {
+      savedDevices.unshift({ id: cleanId, name: cleanName, lastSeen: Date.now() });
+    }
+    saveDevicesToStorage();
+    switchActiveDevice(cleanId);
+  }
+
+  function removeDevice(roomId) {
+    savedDevices = savedDevices.filter(d => d.id !== roomId);
+    saveDevicesToStorage();
+    if (currentRoomId === roomId && savedDevices.length > 0) {
+      switchActiveDevice(savedDevices[0].id);
+    } else {
+      renderDeviceChips();
+    }
   }
 
   function updateRoomPairingUi(roomId, isPaired = false) {
@@ -23,7 +174,9 @@ function initMobileApp() {
     const roomStatusTitle = document.getElementById('roomStatusTitle');
     const roomStatusSubtitle = document.getElementById('roomStatusSubtitle');
     const mobileRoomCodeText = document.getElementById('mobileRoomCodeText');
-    
+    const activeDev = savedDevices.find(d => d.id === roomId);
+    const displayName = activeDev ? activeDev.name : 'Your PC';
+
     if (mobileRoomCodeText) {
       if (roomId) {
         mobileRoomCodeText.textContent = roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId;
@@ -34,7 +187,7 @@ function initMobileApp() {
 
     if (roomStatusTitle) {
       if (roomId) {
-        roomStatusTitle.textContent = isPaired ? '🟢 Paired with Your PC' : '⏳ Waiting for PC...';
+        roomStatusTitle.textContent = isPaired ? `🟢 Paired with ${displayName}` : `⏳ Connecting to ${displayName}...`;
       } else {
         roomStatusTitle.textContent = 'Tap to Pair with Your PC';
       }
@@ -42,7 +195,7 @@ function initMobileApp() {
 
     if (roomStatusSubtitle) {
       if (roomId) {
-        roomStatusSubtitle.innerHTML = `Pairing Code: <span style="color: #60a5fa; font-weight: 700; font-family: monospace;">${roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId}</span>`;
+        roomStatusSubtitle.innerHTML = `Target PC: <b style="color: #60a5fa;">${displayName}</b> (${roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId})`;
       } else {
         roomStatusSubtitle.textContent = 'Enter the 6-digit code shown on your PC';
       }
@@ -66,8 +219,10 @@ function initMobileApp() {
   const pairModal = document.getElementById('pairModal');
   const changeRoomBtn = document.getElementById('changeRoomBtn');
   const openScannerBtn = document.getElementById('openScannerBtn');
+  const addNewPcBtn = document.getElementById('addNewPcBtn');
   const closePairModalBtn = document.getElementById('closePairModalBtn');
   const manualRoomCodeInput = document.getElementById('manualRoomCodeInput');
+  const manualDeviceNameInput = document.getElementById('manualDeviceNameInput');
   const connectRoomBtn = document.getElementById('connectRoomBtn');
   const startScanFromModalBtn = document.getElementById('startScanFromModalBtn');
   const stopScannerBtn = document.getElementById('stopScannerBtn');
@@ -95,7 +250,17 @@ function initMobileApp() {
       });
       if (mobileScannerVideo) {
         mobileScannerVideo.srcObject = mobileCameraStream;
-        await mobileScannerVideo.play();
+        mobileScannerVideo.setAttribute('playsinline', '');
+        mobileScannerVideo.setAttribute('webkit-playsinline', '');
+        mobileScannerVideo.muted = true;
+        try {
+          await mobileScannerVideo.play();
+        } catch (err) {
+          console.warn('Video play blocked, waiting for user click:', err);
+          if (mobileScannerFeedback) {
+            mobileScannerFeedback.textContent = '▶️ Tap on the black box above to start camera view';
+          }
+        }
       }
       isScanningQr = true;
       if (mobileScannerFeedback) {
@@ -110,6 +275,12 @@ function initMobileApp() {
       }
       showToast('Camera permission denied. Use 6-digit code below.', '⚠️');
     }
+  }
+
+  if (mobileScannerVideo) {
+    mobileScannerVideo.addEventListener('click', () => {
+      mobileScannerVideo.play().catch(e => console.log('Video click play:', e));
+    });
   }
 
   function stopMobileQrScanner() {
@@ -178,20 +349,9 @@ function initMobileApp() {
 
     if (extractedRoom) {
       stopMobileQrScanner();
-      currentRoomId = extractedRoom;
-      localStorage.setItem('vshare_room_id', currentRoomId);
-      updateRoomPairingUi(currentRoomId, true);
-      playSuccessChime();
+      const customName = manualDeviceNameInput ? manualDeviceNameInput.value.trim() : '';
+      addOrUpdateDevice(extractedRoom, customName || `PC ${extractedRoom}`);
       if (pairModal) pairModal.classList.remove('active');
-      showToast(`🎉 Paired with PC (Code: ${currentRoomId})!`, '📱');
-
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'join_room',
-          roomId: currentRoomId,
-          role: 'mobile'
-        }));
-      }
     } else {
       mobileScanAnimId = requestAnimationFrame(scanMobileVideoFrame);
     }
@@ -200,6 +360,15 @@ function initMobileApp() {
   if (openScannerBtn) {
     openScannerBtn.addEventListener('click', () => {
       startMobileQrScanner();
+    });
+  }
+
+  if (addNewPcBtn) {
+    addNewPcBtn.addEventListener('click', () => {
+      if (manualRoomCodeInput) manualRoomCodeInput.value = '';
+      if (manualDeviceNameInput) manualDeviceNameInput.value = '';
+      stopMobileQrScanner();
+      if (pairModal) pairModal.classList.add('active');
     });
   }
 
@@ -239,20 +408,10 @@ function initMobileApp() {
         showToast('Please enter the 6-digit code from your PC', '⚠️');
         return;
       }
+      const customName = (manualDeviceNameInput ? manualDeviceNameInput.value : '').trim();
       stopMobileQrScanner();
-      currentRoomId = code;
-      localStorage.setItem('vshare_room_id', currentRoomId);
+      addOrUpdateDevice(code, customName || `PC ${code}`);
       if (pairModal) pairModal.classList.remove('active');
-      updateRoomPairingUi(currentRoomId, false);
-      showToast(`Pairing with PC code ${currentRoomId}...`, '🔒');
-
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'join_room',
-          roomId: currentRoomId,
-          role: 'mobile'
-        }));
-      }
     });
   }
 
@@ -1089,6 +1248,7 @@ function initMobileApp() {
   }
 
   // Initial render of received files and PC file count
+  renderDeviceChips();
   renderReceivedFromPc();
   updatePcFilesBadge();
   updateRoomPairingUi(currentRoomId, false);
