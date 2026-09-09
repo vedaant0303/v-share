@@ -36,6 +36,87 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Synced files tracker so reopened tabs don't re-download files already saved
+  let syncedFiles = new Set(JSON.parse(localStorage.getItem('vshare_synced_files') || '[]'));
+
+  function markFileSynced(name) {
+    if (!name) return;
+    syncedFiles.add(name);
+    try {
+      localStorage.setItem('vshare_synced_files', JSON.stringify([...syncedFiles].slice(-200)));
+    } catch (e) {}
+  }
+
+  // --- Persistent Directory Handle Storage via IndexedDB ---
+  const DB_NAME = 'VShareDirectoryDB';
+  const STORE_NAME = 'dir_handles';
+
+  function openDirectoryDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function persistDirectoryHandle(handle) {
+    try {
+      const db = await openDirectoryDB();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(handle, 'active_folder');
+      localStorage.setItem('vshare_folder_name', handle.name);
+    } catch (err) {
+      console.warn('Could not store directory handle in IndexedDB:', err);
+    }
+  }
+
+  async function loadPersistedDirectoryHandle() {
+    try {
+      const db = await openDirectoryDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get('active_folder');
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function restoreSavedDirectory() {
+    const savedName = localStorage.getItem('vshare_folder_name');
+    try {
+      const handle = await loadPersistedDirectoryHandle();
+      if (handle) {
+        chosenDirectoryHandle = handle;
+        const folderName = handle.name || savedName || 'Selected Folder';
+        if (chosenFolderText) {
+          chosenFolderText.textContent = `📁 ${folderName}`;
+        }
+        if (chooseFolderBtn) {
+          chooseFolderBtn.style.background = 'rgba(16, 185, 129, 0.25)';
+          chooseFolderBtn.style.borderColor = '#10b981';
+          chooseFolderBtn.style.color = '#34d399';
+          chooseFolderBtn.title = `Auto-saving directly to PC folder: ${folderName}`;
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn('Restore directory notice:', e);
+    }
+
+    if (savedName && chosenFolderText) {
+      chosenFolderText.textContent = `📁 ${savedName}`;
+    }
+  }
+
   // Native PC Folder Picker (Web File System Access API)
   const chooseFolderBtn = document.getElementById('chooseFolderBtn');
   const chosenFolderText = document.getElementById('chosenFolderText');
@@ -51,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
           mode: 'readwrite',
           startIn: 'downloads'
         });
+        await persistDirectoryHandle(chosenDirectoryHandle);
         const folderName = chosenDirectoryHandle.name || 'Selected Folder';
         if (chosenFolderText) {
           chosenFolderText.textContent = `📁 ${folderName}`;
@@ -58,7 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chooseFolderBtn.style.background = 'rgba(16, 185, 129, 0.25)';
         chooseFolderBtn.style.borderColor = '#10b981';
         chooseFolderBtn.style.color = '#34d399';
-        showToast(`✅ Incoming mobile files will save directly to PC folder: ${folderName}`, '📂');
+        chooseFolderBtn.title = `Auto-saving directly to PC folder: ${folderName}`;
+        showToast(`✅ Saved folder preference: ${folderName}`, '📂');
       } catch (e) {
         if (e.name !== 'AbortError') {
           console.error('Directory picker error:', e);
@@ -70,21 +153,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Save file directly to chosen PC folder
   async function saveFileDirectlyToPcFolder(file) {
+    if (!file) return;
     if (!chosenDirectoryHandle) {
-      if (autoSaveToPc) triggerBrowserDownload(file);
+      if (autoSaveToPc) {
+        triggerBrowserDownload(file);
+        markFileSynced(file.name);
+      }
       return;
     }
     try {
+      if (chosenDirectoryHandle.queryPermission) {
+        const status = await chosenDirectoryHandle.queryPermission({ mode: 'readwrite' });
+        if (status !== 'granted') {
+          const reqStatus = await chosenDirectoryHandle.requestPermission({ mode: 'readwrite' });
+          if (reqStatus !== 'granted') {
+            if (autoSaveToPc) {
+              triggerBrowserDownload(file);
+              markFileSynced(file.name);
+            }
+            return;
+          }
+        }
+      }
+
       const response = await fetch(file.downloadUrl);
       const blob = await response.blob();
       const fileHandle = await chosenDirectoryHandle.getFileHandle(file.name, { create: true });
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
       await writable.close();
+      markFileSynced(file.name);
       showToast(`💾 Saved "${file.name}" to your chosen PC folder!`, '📂');
     } catch (err) {
       console.warn('Directory handle write fallback:', err);
-      if (autoSaveToPc) triggerBrowserDownload(file);
+      if (autoSaveToPc) {
+        triggerBrowserDownload(file);
+        markFileSynced(file.name);
+      }
     }
   }
 
@@ -98,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => a.remove(), 1000);
+    markFileSynced(file.name);
     showToast(`💾 Saved "${file.name}" to PC Downloads!`, '📥');
   }
 
@@ -292,6 +398,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       allFiles = data.files || [];
       renderFiles();
+
+      // If Auto-Save is enabled, auto-save any incoming files that arrived while tab was closed!
+      if (autoSaveToPc && allFiles.length > 0) {
+        allFiles.forEach((file, index) => {
+          if (!syncedFiles.has(file.name)) {
+            setTimeout(() => {
+              saveFileDirectlyToPcFolder(file);
+            }, index * 400);
+          }
+        });
+      }
     } catch (err) {
       console.error('Failed to load files:', err);
     }
@@ -1077,6 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
   closeScannerBtn.addEventListener('click', stopCameraScanner);
 
   // Initial Boot
+  restoreSavedDirectory();
   loadSystemInfo();
   loadFiles();
   loadPathSettings(true);
