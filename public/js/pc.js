@@ -1117,8 +1117,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // WebRTC & Remote Control Host Handlers
         if (msg.type === 'remote_start_request') {
-          // Native background stream (VRemoteInput) handles this automatically without browser popups!
-          console.log('📱 Phone requested Remote Desktop control (handled silently by V-Share background daemon)');
+          console.log('📱 Phone requested Remote Desktop control!');
+          const promptModal = document.getElementById('pcRemoteRequestModal');
+          if (promptModal) {
+            promptModal.classList.add('active');
+            try { playSuccessChime(); } catch (e) {}
+            showToast('📱 Phone requested Remote Control! Click Share Screen to allow.', '🖥️');
+          } else {
+            startScreenShareHost();
+          }
           return;
         }
 

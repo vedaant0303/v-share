@@ -1496,6 +1496,11 @@ function initMobileApp() {
         roomId: currentRoomId,
         role: 'mobile'
       }));
+      ws.send(JSON.stringify({
+        type: 'remote_start_request',
+        roomId: currentRoomId,
+        role: 'mobile'
+      }));
       showToast('Connecting to PC Desktop...', '🖥️');
     } else {
       showToast('Connecting to PC first...', '⏳');
@@ -1541,6 +1546,8 @@ function initMobileApp() {
             remoteScreenVideo.onloadeddata = playStream;
           }
           if (remoteWaitingCard) remoteWaitingCard.style.display = 'none';
+          const lockedNotice = document.getElementById('remoteLockedNotice');
+          if (lockedNotice) lockedNotice.style.display = 'none';
           showToast('🟢 Fullscreen PC Touchscreen Active!', '🖥️');
         }
       };

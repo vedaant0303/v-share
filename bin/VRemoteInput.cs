@@ -29,16 +29,20 @@ public class VRemoteInput {
 
     // --- BitBlt Screen Capture (works in background sessions) ---
     [DllImport("user32.dll")]
+    static extern IntPtr GetDesktopWindow();
+    [DllImport("user32.dll")]
     static extern IntPtr GetDC(IntPtr hWnd);
     [DllImport("user32.dll")]
     static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+    [DllImport("gdi32.dll")]
+    static extern IntPtr CreateDC(string d, string dev, string o, IntPtr p);
     [DllImport("gdi32.dll")]
     static extern IntPtr CreateCompatibleDC(IntPtr hdc);
     [DllImport("gdi32.dll")]
     static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int nWidth, int nHeight);
     [DllImport("gdi32.dll")]
     static extern IntPtr SelectObject(IntPtr hdc, IntPtr hObject);
-    [DllImport("gdi32.dll")]
+    [DllImport("gdi32.dll", SetLastError = true)]
     static extern bool BitBlt(IntPtr hdcDest, int xDest, int yDest, int wDest, int hDest,
         IntPtr hdcSrc, int xSrc, int ySrc, int rop);
     [DllImport("gdi32.dll")]
@@ -246,6 +250,61 @@ public class VRemoteInput {
                     int h = GetSystemMetrics(SM_CYSCREEN);
                     lock (consoleLock) {
                         Console.WriteLine("SCREEN " + w + " " + h);
+                        Console.Out.Flush();
+                    }
+
+                } else if (cmd == "test") {
+                    int w = GetSystemMetrics(SM_CXSCREEN);
+                    int h = GetSystemMetrics(SM_CYSCREEN);
+                    lock (consoleLock) {
+                        Console.WriteLine("DIAG: Screen size = " + w + "x" + h);
+                        try {
+                            IntPtr hdcDisp = CreateDC("DISPLAY", null, null, IntPtr.Zero);
+                            Console.WriteLine("  hdcDisp = " + hdcDisp);
+                            IntPtr memDC = CreateCompatibleDC(hdcDisp);
+                            Console.WriteLine("  memDC = " + memDC);
+                            IntPtr hBmp = CreateCompatibleBitmap(hdcDisp, w, h);
+                            Console.WriteLine("  hBmp = " + hBmp);
+                            IntPtr old = SelectObject(memDC, hBmp);
+                            Console.WriteLine("  old = " + old);
+                            bool ok = BitBlt(memDC, 0, 0, w, h, hdcDisp, 0, 0, 0x00CC0020);
+                            int err = Marshal.GetLastWin32Error();
+                            Console.WriteLine("  BitBlt ok=" + ok + " err=" + err);
+                            SelectObject(memDC, old);
+                            DeleteObject(hBmp);
+                            DeleteDC(memDC);
+                            DeleteDC(hdcDisp);
+                        } catch (Exception ex) {
+                            Console.WriteLine("  EX: " + ex);
+                        }
+
+                        // Method B: GetDesktopWindow DC
+                        try {
+                            IntPtr hDesk = GetDesktopWindow();
+                            Console.WriteLine("  hDesk = " + hDesk);
+                            IntPtr hdcDesk = GetDC(hDesk);
+                            Console.WriteLine("  hdcDesk = " + hdcDesk);
+                            IntPtr memDC = CreateCompatibleDC(hdcDesk);
+                            Console.WriteLine("  memDC = " + memDC);
+                            IntPtr hBmp = CreateCompatibleBitmap(hdcDesk, w, h);
+                            Console.WriteLine("  hBmp = " + hBmp);
+                            IntPtr old = SelectObject(memDC, hBmp);
+                            bool ok = BitBlt(memDC, 0, 0, w, h, hdcDesk, 0, 0, 0x00CC0020);
+                            int err = Marshal.GetLastWin32Error();
+                            Console.WriteLine("  BitBlt B ok=" + ok + " err=" + err);
+                            SelectObject(memDC, old);
+                            using (Bitmap b = Image.FromHbitmap(hBmp)) {
+                                using (Bitmap c = new Bitmap(b)) {
+                                    c.Save("diag_desk.jpg", ImageFormat.Jpeg);
+                                    Console.WriteLine("DIAG-DESK: ok=" + ok + " size=" + new FileInfo("diag_desk.jpg").Length + " px=" + c.GetPixel(w/2, h/2));
+                                }
+                            }
+                            DeleteObject(hBmp);
+                            DeleteDC(memDC);
+                            ReleaseDC(hDesk, hdcDesk);
+                        } catch (Exception ex) {
+                            Console.WriteLine("DIAG-DESK-ERR: " + ex.Message);
+                        }
                         Console.Out.Flush();
                     }
 
