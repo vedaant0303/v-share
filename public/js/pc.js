@@ -1226,7 +1226,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  closeScannerBtn.addEventListener('click', stopCameraScanner);
+  // Register Service Worker for PWA Desktop Install
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log('PC SW register error', err));
+  }
+
+  // Handle Desktop PWA 1-Click Install
+  let deferredPcInstallPrompt = null;
+  const installAppBtn = document.getElementById('installAppBtn');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPcInstallPrompt = e;
+    if (installAppBtn) {
+      installAppBtn.style.display = 'inline-flex';
+    }
+  });
+
+  if (installAppBtn) {
+    installAppBtn.addEventListener('click', async () => {
+      if (deferredPcInstallPrompt) {
+        deferredPcInstallPrompt.prompt();
+        const { outcome } = await deferredPcInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installAppBtn.style.display = 'none';
+          showToast('V-Share installed to your Desktop!', '💻');
+        }
+        deferredPcInstallPrompt = null;
+      } else {
+        showToast('To install: click the Install icon in your browser address bar ↗️', 'ℹ️');
+      }
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    if (installAppBtn) installAppBtn.style.display = 'none';
+    showToast('V-Share installed as a Desktop App!', '🎉');
+  });
 
   // Initial Boot
   restoreSavedDirectory();

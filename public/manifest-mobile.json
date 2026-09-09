@@ -1,7 +1,7 @@
 {
-  "name": "V-Share",
+  "name": "V-Share Mobile",
   "short_name": "V-Share",
-  "start_url": "/",
+  "start_url": "/mobile",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0a0e17",
@@ -20,5 +20,21 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/mobile-share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": ["*/*"]
+        }
+      ]
+    }
+  }
 }
