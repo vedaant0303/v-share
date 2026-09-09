@@ -1115,6 +1115,41 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`📋 Received from ${msg.from}: ${msg.text.substring(0, 30)}...`, '💬');
         }
 
+        // WebRTC & Remote Control Host Handlers
+        if (msg.type === 'remote_start_request') {
+          playNotificationChime();
+          showToast('📱 Phone requested Remote Desktop control!', '🖥️');
+          if (!pcScreenStream) {
+            startScreenShareHost(true);
+          } else {
+            setupPcPeerConnection();
+          }
+          return;
+        }
+
+        if (msg.type === 'webrtc_answer' && pcPeerConnection) {
+          try {
+            pcPeerConnection.setRemoteDescription(new RTCSessionDescription(msg.answer));
+          } catch (e) {
+            console.error('Error setting remote description on PC:', e);
+          }
+          return;
+        }
+
+        if (msg.type === 'webrtc_ice_candidate' && pcPeerConnection && msg.candidate) {
+          try {
+            pcPeerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          } catch (e) {
+            console.error('Error adding ICE candidate on PC:', e);
+          }
+          return;
+        }
+
+        if (msg.type === 'remote_stop') {
+          stopScreenShareHost();
+          return;
+        }
+
       } catch (err) {
         console.error('WS message error:', err);
       }
@@ -1305,6 +1340,137 @@ document.addEventListener('DOMContentLoaded', () => {
     pcGuideModal.addEventListener('click', (e) => {
       if (e.target === pcGuideModal) pcGuideModal.classList.remove('active');
     });
+  }
+
+  // --- WebRTC Screen Sharing & Remote Control Host (PC) ---
+  let pcScreenStream = null;
+  let pcPeerConnection = null;
+  const pcRemoteScreenBtn = document.getElementById('pcRemoteScreenBtn');
+  const pcRemoteActiveBanner = document.getElementById('pcRemoteActiveBanner');
+  const stopPcRemoteBtn = document.getElementById('stopPcRemoteBtn');
+  const remoteBtnText = document.getElementById('remoteBtnText');
+
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  };
+
+  async function startScreenShareHost(autoPrompt = false) {
+    if (pcScreenStream) {
+      stopScreenShareHost();
+      return;
+    }
+
+    try {
+      pcScreenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: 'always',
+          frameRate: { ideal: 30, max: 60 }
+        },
+        audio: false
+      });
+
+      // Handle user stopping stream from native browser overlay
+      if (pcScreenStream.getVideoTracks() && pcScreenStream.getVideoTracks()[0]) {
+        pcScreenStream.getVideoTracks()[0].onended = () => {
+          stopScreenShareHost();
+        };
+      }
+
+      if (pcRemoteActiveBanner) pcRemoteActiveBanner.style.display = 'flex';
+      if (remoteBtnText) remoteBtnText.textContent = 'Stop Sharing';
+      if (pcRemoteScreenBtn) {
+        pcRemoteScreenBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+        pcRemoteScreenBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+        pcRemoteScreenBtn.style.color = '#fca5a5';
+      }
+
+      showToast('🖥️ Screen sharing active! Connected phone can now control this PC.', '🟢');
+
+      // Setup WebRTC connection with Mobile
+      setupPcPeerConnection();
+    } catch (err) {
+      console.warn('Screen share canceled or denied:', err.message);
+      stopScreenShareHost();
+    }
+  }
+
+  async function setupPcPeerConnection() {
+    if (!pcScreenStream) return;
+
+    if (pcPeerConnection) {
+      try { pcPeerConnection.close(); } catch (e) {}
+    }
+
+    pcPeerConnection = new RTCPeerConnection(rtcConfig);
+
+    pcScreenStream.getTracks().forEach(track => {
+      pcPeerConnection.addTrack(track, pcScreenStream);
+    });
+
+    pcPeerConnection.onicecandidate = (event) => {
+      if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'webrtc_ice_candidate',
+          candidate: event.candidate,
+          role: 'pc'
+        }));
+      }
+    };
+
+    try {
+      const offer = await pcPeerConnection.createOffer({
+        offerToReceiveVideo: false,
+        offerToReceiveAudio: false
+      });
+      await pcPeerConnection.setLocalDescription(offer);
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'webrtc_offer',
+          offer: offer,
+          role: 'pc'
+        }));
+      }
+    } catch (e) {
+      console.error('Error creating WebRTC offer on PC:', e);
+    }
+  }
+
+  function stopScreenShareHost() {
+    if (pcScreenStream) {
+      pcScreenStream.getTracks().forEach(track => track.stop());
+      pcScreenStream = null;
+    }
+    if (pcPeerConnection) {
+      try { pcPeerConnection.close(); } catch (e) {}
+      pcPeerConnection = null;
+    }
+
+    if (pcRemoteActiveBanner) pcRemoteActiveBanner.style.display = 'none';
+    if (remoteBtnText) remoteBtnText.textContent = 'Remote Control';
+    if (pcRemoteScreenBtn) {
+      pcRemoteScreenBtn.style.background = 'rgba(168, 85, 247, 0.15)';
+      pcRemoteScreenBtn.style.borderColor = 'rgba(168, 85, 247, 0.4)';
+      pcRemoteScreenBtn.style.color = '#c084fc';
+    }
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'remote_stop',
+        role: 'pc'
+      }));
+    }
+  }
+
+  if (pcRemoteScreenBtn) {
+    pcRemoteScreenBtn.addEventListener('click', () => startScreenShareHost());
+  }
+  if (stopPcRemoteBtn) {
+    stopPcRemoteBtn.addEventListener('click', () => stopScreenShareHost());
   }
 
   // Initial Boot

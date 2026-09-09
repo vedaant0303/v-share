@@ -607,6 +607,19 @@ function initMobileApp() {
           if (msg.type === 'file_for_mobile' || (msg.type === 'file_received' && msg.sender === 'PC')) {
             handleIncomingFileFromPc(msg.file);
           }
+          if (msg.type === 'webrtc_offer') {
+            handleIncomingWebRtcOffer(msg.offer);
+          }
+          if (msg.type === 'webrtc_ice_candidate' && mobilePeerConnection && msg.candidate) {
+            try {
+              mobilePeerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
+            } catch (e) {
+              console.error('Error adding ICE candidate on Mobile:', e);
+            }
+          }
+          if (msg.type === 'remote_stop') {
+            handleRemoteSessionStopped();
+          }
         } catch (err) {}
       };
     } catch (e) {
@@ -1319,6 +1332,343 @@ function initMobileApp() {
     playSuccessChime();
     showToast('🎉 Shared document uploaded to PC!', '✅');
   }
+
+  // --- Remote PC Desktop Controller Logic ---
+  let mobilePeerConnection = null;
+  let remoteScreenStream = null;
+  let remoteControlActive = false;
+  let remoteMode = 'trackpad'; // 'trackpad' or 'direct'
+  let cursorX = 0.5;
+  let cursorY = 0.5;
+
+  const remoteDesktopOverlay = document.getElementById('remoteDesktopOverlay');
+  const openRemoteBtn = document.getElementById('openRemoteBtn');
+  const remotePcPromoCard = document.getElementById('remotePcPromoCard');
+  const closeRemoteOverlayBtn = document.getElementById('closeRemoteOverlayBtn');
+  const remoteScreenVideo = document.getElementById('remoteScreenVideo');
+  const remoteTouchSurface = document.getElementById('remoteTouchSurface');
+  const remoteWaitingCard = document.getElementById('remoteWaitingCard');
+  const remoteWaitingTitle = document.getElementById('remoteWaitingTitle');
+  const remoteWaitingMsg = document.getElementById('remoteWaitingMsg');
+  const requestRemoteStartBtn = document.getElementById('requestRemoteStartBtn');
+
+  const toggleRemoteModeBtn = document.getElementById('toggleRemoteModeBtn');
+  const remoteModeIcon = document.getElementById('remoteModeIcon');
+  const remoteModeText = document.getElementById('remoteModeText');
+
+  const toggleRemoteKeyboardBtn = document.getElementById('toggleRemoteKeyboardBtn');
+  const remoteKeyboardDrawer = document.getElementById('remoteKeyboardDrawer');
+  const remoteTextInput = document.getElementById('remoteTextInput');
+  const sendRemoteTextBtn = document.getElementById('sendRemoteTextBtn');
+
+  const toggleQuickActionsBtn = document.getElementById('toggleQuickActionsBtn');
+  const remoteQuickDrawer = document.getElementById('remoteQuickDrawer');
+
+  const leftClickBtn = document.getElementById('leftClickBtn');
+  const rightClickBtn = document.getElementById('rightClickBtn');
+  const scrollUpBtn = document.getElementById('scrollUpBtn');
+  const scrollDownBtn = document.getElementById('scrollDownBtn');
+
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  };
+
+  function sendRemoteInput(payload) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'remote_input',
+        ...payload
+      }));
+    }
+  }
+
+  function openRemoteDesktop() {
+    if (remoteDesktopOverlay) {
+      remoteDesktopOverlay.style.display = 'flex';
+      remoteControlActive = true;
+      requestRemoteStart();
+    }
+  }
+
+  function closeRemoteDesktop() {
+    if (remoteDesktopOverlay) {
+      remoteDesktopOverlay.style.display = 'none';
+      remoteControlActive = false;
+      if (remoteScreenStream) {
+        remoteScreenStream.getTracks().forEach(t => t.stop());
+        remoteScreenStream = null;
+      }
+      if (mobilePeerConnection) {
+        try { mobilePeerConnection.close(); } catch (e) {}
+        mobilePeerConnection = null;
+      }
+      if (remoteScreenVideo) remoteScreenVideo.srcObject = null;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'remote_stop', role: 'mobile' }));
+      }
+    }
+  }
+
+  function requestRemoteStart() {
+    if (remoteWaitingCard) remoteWaitingCard.style.display = 'flex';
+    if (remoteWaitingTitle) remoteWaitingTitle.textContent = 'Connecting to PC Screen...';
+    if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'Please click "Allow" on your PC screen when prompted.';
+    if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '⏳ Waiting for PC...';
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'remote_start_request',
+        role: 'mobile'
+      }));
+      showToast('Requested PC screen share...', '🖥️');
+    } else {
+      showToast('Connecting to PC first...', '⏳');
+    }
+  }
+
+  async function handleIncomingWebRtcOffer(offer) {
+    try {
+      if (mobilePeerConnection) {
+        try { mobilePeerConnection.close(); } catch (e) {}
+      }
+
+      mobilePeerConnection = new RTCPeerConnection(rtcConfig);
+
+      mobilePeerConnection.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          remoteScreenStream = event.streams[0];
+          if (remoteScreenVideo) {
+            remoteScreenVideo.srcObject = remoteScreenStream;
+            remoteScreenVideo.play().catch(e => console.warn('Play video notice:', e));
+          }
+          if (remoteWaitingCard) remoteWaitingCard.style.display = 'none';
+          showToast('🟢 Connected to PC Screen!', '🖥️');
+        }
+      };
+
+      mobilePeerConnection.onicecandidate = (event) => {
+        if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'webrtc_ice_candidate',
+            candidate: event.candidate,
+            role: 'mobile'
+          }));
+        }
+      };
+
+      await mobilePeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await mobilePeerConnection.createAnswer();
+      await mobilePeerConnection.setLocalDescription(answer);
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'webrtc_answer',
+          answer: answer,
+          role: 'mobile'
+        }));
+      }
+    } catch (err) {
+      console.error('Error answering WebRTC offer on Mobile:', err);
+    }
+  }
+
+  function handleRemoteSessionStopped() {
+    if (remoteWaitingCard) {
+      remoteWaitingCard.style.display = 'flex';
+      if (remoteWaitingTitle) remoteWaitingTitle.textContent = 'Screen Share Ended';
+      if (remoteWaitingMsg) remoteWaitingMsg.textContent = 'PC has stopped sharing the screen.';
+      if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '🚀 Reconnect to PC Screen';
+    }
+    if (remoteScreenVideo) remoteScreenVideo.srcObject = null;
+    if (mobilePeerConnection) {
+      try { mobilePeerConnection.close(); } catch (e) {}
+      mobilePeerConnection = null;
+    }
+  }
+
+  // Touchpad Gestures on #remoteTouchSurface
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let lastTouchX = 0;
+  let lastTouchY = 0;
+  let touchStartTime = 0;
+  let lastScrollY = 0;
+  let lastSendTime = 0;
+
+  if (remoteTouchSurface) {
+    remoteTouchSurface.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      touchStartTime = Date.now();
+      const count = e.touches.length;
+
+      if (count === 1) {
+        const t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        lastTouchX = t.clientX;
+        lastTouchY = t.clientY;
+
+        if (remoteMode === 'direct') {
+          const rect = remoteTouchSurface.getBoundingClientRect();
+          cursorX = Math.min(Math.max((t.clientX - rect.left) / rect.width, 0), 1);
+          cursorY = Math.min(Math.max((t.clientY - rect.top) / rect.height, 0), 1);
+          sendRemoteInput({ action: 'move', x: cursorX, y: cursorY });
+        }
+      } else if (count === 2) {
+        lastScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      }
+    }, { passive: false });
+
+    remoteTouchSurface.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const count = e.touches.length;
+      const now = Date.now();
+
+      if (count === 1) {
+        const t = e.touches[0];
+        if (remoteMode === 'trackpad') {
+          const dx = t.clientX - lastTouchX;
+          const dy = t.clientY - lastTouchY;
+          lastTouchX = t.clientX;
+          lastTouchY = t.clientY;
+
+          const sensitivity = 0.0019;
+          cursorX = Math.min(Math.max(cursorX + dx * sensitivity, 0), 1);
+          cursorY = Math.min(Math.max(cursorY + dy * sensitivity, 0), 1);
+
+          if (now - lastSendTime > 16) {
+            lastSendTime = now;
+            sendRemoteInput({ action: 'move', x: cursorX, y: cursorY });
+          }
+        } else if (remoteMode === 'direct') {
+          const rect = remoteTouchSurface.getBoundingClientRect();
+          cursorX = Math.min(Math.max((t.clientX - rect.left) / rect.width, 0), 1);
+          cursorY = Math.min(Math.max((t.clientY - rect.top) / rect.height, 0), 1);
+
+          if (now - lastSendTime > 16) {
+            lastSendTime = now;
+            sendRemoteInput({ action: 'move', x: cursorX, y: cursorY });
+          }
+        }
+      } else if (count === 2) {
+        const currentY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const diff = currentY - lastScrollY;
+        if (Math.abs(diff) > 8) {
+          lastScrollY = currentY;
+          sendRemoteInput({ action: 'scroll', delta: diff > 0 ? 120 : -120 });
+        }
+      }
+    }, { passive: false });
+
+    remoteTouchSurface.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const duration = Date.now() - touchStartTime;
+
+      if (e.touches.length === 0) {
+        if (duration < 300) {
+          const dist = Math.hypot(lastTouchX - touchStartX, lastTouchY - touchStartY);
+          if (dist < 14) {
+            sendRemoteInput({ action: 'click', button: 'left' });
+          }
+        }
+      } else if (e.touches.length === 1 && duration < 300) {
+        sendRemoteInput({ action: 'click', button: 'right' });
+      }
+    }, { passive: false });
+  }
+
+  // Mouse Buttons
+  if (leftClickBtn) leftClickBtn.addEventListener('click', () => sendRemoteInput({ action: 'click', button: 'left' }));
+  if (rightClickBtn) rightClickBtn.addEventListener('click', () => sendRemoteInput({ action: 'click', button: 'right' }));
+  if (scrollUpBtn) scrollUpBtn.addEventListener('click', () => sendRemoteInput({ action: 'scroll', delta: 120 }));
+  if (scrollDownBtn) scrollDownBtn.addEventListener('click', () => sendRemoteInput({ action: 'scroll', delta: -120 }));
+
+  // Mode Switcher
+  if (toggleRemoteModeBtn) {
+    toggleRemoteModeBtn.addEventListener('click', () => {
+      if (remoteMode === 'trackpad') {
+        remoteMode = 'direct';
+        if (remoteModeIcon) remoteModeIcon.textContent = '👆';
+        if (remoteModeText) remoteModeText.textContent = 'Direct Touch';
+        toggleRemoteModeBtn.classList.add('active');
+        showToast('Direct Touch Mode: Tap directly on PC items', '👆');
+      } else {
+        remoteMode = 'trackpad';
+        if (remoteModeIcon) remoteModeIcon.textContent = '🖱️';
+        if (remoteModeText) remoteModeText.textContent = 'Trackpad';
+        toggleRemoteModeBtn.classList.remove('active');
+        showToast('Trackpad Mode: Slide finger to glide cursor', '🖱️');
+      }
+    });
+  }
+
+  // Drawers Toggles
+  if (toggleRemoteKeyboardBtn && remoteKeyboardDrawer) {
+    toggleRemoteKeyboardBtn.addEventListener('click', () => {
+      const isShown = remoteKeyboardDrawer.style.display === 'block';
+      remoteKeyboardDrawer.style.display = isShown ? 'none' : 'block';
+      toggleRemoteKeyboardBtn.classList.toggle('active', !isShown);
+      if (remoteQuickDrawer) remoteQuickDrawer.style.display = 'none';
+      if (toggleQuickActionsBtn) toggleQuickActionsBtn.classList.remove('active');
+      if (!isShown && remoteTextInput) remoteTextInput.focus();
+    });
+  }
+
+  if (toggleQuickActionsBtn && remoteQuickDrawer) {
+    toggleQuickActionsBtn.addEventListener('click', () => {
+      const isShown = remoteQuickDrawer.style.display === 'block';
+      remoteQuickDrawer.style.display = isShown ? 'none' : 'block';
+      toggleQuickActionsBtn.classList.toggle('active', !isShown);
+      if (remoteKeyboardDrawer) remoteKeyboardDrawer.style.display = 'none';
+      if (toggleRemoteKeyboardBtn) toggleRemoteKeyboardBtn.classList.remove('active');
+    });
+  }
+
+  // Text send
+  function sendTextToPc() {
+    if (!remoteTextInput) return;
+    const text = remoteTextInput.value;
+    if (text) {
+      sendRemoteInput({ action: 'text', text });
+      remoteTextInput.value = '';
+      showToast('Typed to PC!', '⌨️');
+    }
+  }
+
+  if (sendRemoteTextBtn) sendRemoteTextBtn.addEventListener('click', sendTextToPc);
+  if (remoteTextInput) {
+    remoteTextInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendTextToPc();
+      }
+    });
+  }
+
+  // PC Key & Shortcut Buttons
+  document.querySelectorAll('.pc-key-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-key');
+      const shortcut = btn.getAttribute('data-shortcut');
+      if (key) {
+        sendRemoteInput({ action: 'key', key });
+        showToast(`Sent key: ${key}`, '⌨️');
+      } else if (shortcut) {
+        sendRemoteInput({ action: 'shortcut', shortcut });
+        showToast(`Triggered: ${shortcut}`, '⚡');
+      }
+    });
+  });
+
+  // Open & Close Buttons
+  if (openRemoteBtn) openRemoteBtn.addEventListener('click', openRemoteDesktop);
+  if (remotePcPromoCard) remotePcPromoCard.addEventListener('click', openRemoteDesktop);
+  if (closeRemoteOverlayBtn) closeRemoteOverlayBtn.addEventListener('click', closeRemoteDesktop);
+  if (requestRemoteStartBtn) requestRemoteStartBtn.addEventListener('click', requestRemoteStart);
 
   // Initial render of received files and PC file count
   renderDeviceChips();

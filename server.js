@@ -77,6 +77,16 @@ app.head(['/api/ping', '/ping', '/healthz', '/'], (req, res) => {
   res.status(200).end();
 });
 
+// Remote Desktop / OS Sharing Status API
+app.get('/api/remote/status', (req, res) => {
+  res.json({
+    supported: process.platform === 'win32',
+    ready: !!remoteInputProcess,
+    screenWidth,
+    screenHeight
+  });
+});
+
 // Store connected clients for WebSocket
 const clients = new Set();
 
@@ -105,6 +115,102 @@ function broadcastToRoom(roomId, data, excludeWs = null) {
     }
   }
 }
+
+// Active Cloud Bridge WebSocket instance
+let activeCloudBridgeWs = null;
+
+// Native Windows Remote Input Controller (Remote Desktop)
+let remoteInputProcess = null;
+let screenWidth = 1920;
+let screenHeight = 1080;
+
+function initRemoteInputBridge() {
+  if (process.platform !== 'win32') return;
+
+  const binPath = path.join(__dirname, 'bin', 'VRemoteInput.exe');
+  if (!fs.existsSync(binPath)) {
+    console.warn('[RemoteInput] VRemoteInput.exe not found at', binPath);
+    return;
+  }
+
+  try {
+    remoteInputProcess = spawn(binPath, [], {
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true
+    });
+
+    remoteInputProcess.stdout.on('data', (data) => {
+      const text = data.toString().trim();
+      const lines = text.split('\n');
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (line.startsWith('SCREEN ')) {
+          const parts = line.split(' ');
+          if (parts.length >= 3) {
+            screenWidth = parseInt(parts[1], 10) || 1920;
+            screenHeight = parseInt(parts[2], 10) || 1080;
+            console.log(`🖥️ [RemoteInput] PC Screen Resolution: ${screenWidth}x${screenHeight}`);
+          }
+        }
+      }
+    });
+
+    remoteInputProcess.on('error', (err) => {
+      console.warn('[RemoteInput] Process error:', err.message);
+      remoteInputProcess = null;
+    });
+
+    remoteInputProcess.on('exit', () => {
+      remoteInputProcess = null;
+    });
+
+    // Query screen resolution
+    remoteInputProcess.stdin.write('screen\n');
+  } catch (err) {
+    console.warn('[RemoteInput] Failed to start VRemoteInput:', err.message);
+  }
+}
+
+function handleRemoteInputEvent(event) {
+  if (!event || !event.action) return;
+  if (!remoteInputProcess || !remoteInputProcess.stdin || remoteInputProcess.stdin.destroyed) {
+    initRemoteInputBridge();
+  }
+  if (!remoteInputProcess || !remoteInputProcess.stdin) return;
+
+  try {
+    const action = event.action;
+    if (action === 'move' && typeof event.x === 'number' && typeof event.y === 'number') {
+      const px = Math.min(Math.max(Math.round(event.x * screenWidth), 0), screenWidth - 1);
+      const py = Math.min(Math.max(Math.round(event.y * screenHeight), 0), screenHeight - 1);
+      remoteInputProcess.stdin.write(`move ${px} ${py}\n`);
+    } else if (action === 'click') {
+      const btn = event.button || 'left';
+      remoteInputProcess.stdin.write(`click ${btn}\n`);
+    } else if (action === 'down') {
+      const btn = event.button || 'left';
+      remoteInputProcess.stdin.write(`down ${btn}\n`);
+    } else if (action === 'up') {
+      const btn = event.button || 'left';
+      remoteInputProcess.stdin.write(`up ${btn}\n`);
+    } else if (action === 'scroll' && typeof event.delta === 'number') {
+      remoteInputProcess.stdin.write(`scroll ${Math.round(event.delta)}\n`);
+    } else if (action === 'key' && event.key) {
+      remoteInputProcess.stdin.write(`key ${event.key}\n`);
+    } else if (action === 'text' && event.text) {
+      const safeText = String(event.text).replace(/([+^%~{}()[\]])/g, '{$1}');
+      remoteInputProcess.stdin.write(`key ${safeText}\n`);
+    } else if (action === 'shortcut' && event.shortcut) {
+      remoteInputProcess.stdin.write(`shortcut ${event.shortcut}\n`);
+    }
+  } catch (e) {
+    console.warn('[RemoteInput] Error executing action:', e.message);
+  }
+}
+
+// Start remote input bridge on Windows
+initRemoteInputBridge();
+
 
 wss.on('connection', (ws, req) => {
   clients.add(ws);
@@ -182,6 +288,25 @@ wss.on('connection', (ws, req) => {
             timestamp: Date.now()
           });
         }
+      }
+
+      // Remote Desktop / OS Sharing Handlers
+      if (data.type === 'remote_start_request' || data.type === 'remote_stop' ||
+          data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate') {
+        if (ws.roomId) {
+          broadcastToRoom(ws.roomId, data, ws);
+        } else {
+          broadcast(data, ws);
+        }
+        if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+          activeCloudBridgeWs.send(JSON.stringify(data));
+        }
+        return;
+      }
+
+      if (data.type === 'remote_input') {
+        handleRemoteInputEvent(data);
+        return;
       }
     } catch (err) {
       console.error('Error handling WS message:', err);
@@ -1102,6 +1227,7 @@ server.listen(PORT, '0.0.0.0', () => {
 
       try {
         bridgeWs = new WebSocket(cloudWsUrl);
+        activeCloudBridgeWs = bridgeWs;
       } catch (e) {
         setTimeout(startCloudBridge, 8000);
         return;
@@ -1139,6 +1265,18 @@ server.listen(PORT, '0.0.0.0', () => {
       bridgeWs.on('message', (data) => {
         try {
           const msg = JSON.parse(data);
+
+          if (msg.type === 'remote_input') {
+            handleRemoteInputEvent(msg);
+            return;
+          }
+
+          if (msg.type === 'remote_start_request' || msg.type === 'remote_stop' ||
+              msg.type === 'webrtc_offer' || msg.type === 'webrtc_answer' || msg.type === 'webrtc_ice_candidate') {
+            broadcast(msg);
+            return;
+          }
+
           if (msg.type === 'file_received' && msg.file && msg.file.downloadUrl) {
             const fileName = msg.file.name;
             const destPath = path.join(UPLOAD_DIR, fileName);
@@ -1169,10 +1307,12 @@ server.listen(PORT, '0.0.0.0', () => {
       });
 
       bridgeWs.on('close', () => {
+        activeCloudBridgeWs = null;
         setTimeout(startCloudBridge, 5000);
       });
 
       bridgeWs.on('error', () => {
+        activeCloudBridgeWs = null;
         bridgeWs.close();
       });
     }

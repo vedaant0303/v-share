@@ -437,6 +437,182 @@
       height: 100%;
       display: block;
     }
+
+    /* Remote Desktop Fullscreen Overlay */
+    .remote-overlay {
+      position: fixed;
+      inset: 0;
+      background: #090d14;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      overflow: hidden;
+    }
+
+    .remote-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 10002;
+    }
+
+    .remote-btn-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #e2e8f0;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .remote-btn-chip.active {
+      background: rgba(168, 85, 247, 0.25);
+      border-color: #a855f7;
+      color: #d8b4fe;
+    }
+    .remote-btn-chip.close-chip {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .remote-video-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #remoteScreenVideo {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .remote-touch-surface {
+      position: absolute;
+      inset: 0;
+      z-index: 10001;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .remote-waiting-card {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(9, 13, 20, 0.94);
+      padding: 24px;
+      text-align: center;
+      z-index: 10003;
+    }
+
+    .remote-keyboard-drawer {
+      background: #0f172a;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 12px 14px;
+      z-index: 10002;
+    }
+
+    .remote-typing-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .remote-typing-row input {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+    .remote-typing-row button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .remote-keys-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .pc-key-btn {
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #cbd5e1;
+      padding: 8px 4px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .pc-key-btn:active {
+      background: #334155;
+      color: #38bdf8;
+    }
+
+    .remote-bottom-bar {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 10002;
+    }
+    .mouse-btn {
+      flex: 1;
+      padding: 11px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .mouse-btn.left {
+      background: rgba(37, 99, 235, 0.25);
+      color: #60a5fa;
+      border-color: rgba(37, 99, 235, 0.5);
+    }
+    .mouse-btn.right {
+      background: rgba(168, 85, 247, 0.25);
+      color: #c084fc;
+      border-color: rgba(168, 85, 247, 0.5);
+    }
+    .mouse-btn.scroll {
+      background: rgba(255, 255, 255, 0.05);
+      color: #94a3b8;
+      flex: 0.8;
+    }
   </style>
 </head>
 <body>
@@ -454,18 +630,37 @@
         <img src="/logo-icon.png" alt="V-Share" class="brand-icon-img" style="height: 48px; width: 48px; object-fit: contain; filter: drop-shadow(0 3px 12px rgba(0, 150, 255, 0.45));">
       </div>
 
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button id="openMobileGuideBtn" type="button" style="background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 6px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button id="openRemoteBtn" type="button" style="background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.45); color: #d8b4fe; padding: 6px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+          <span>🖥️</span>
+          <span>Remote PC</span>
+        </button>
+
+        <button id="openMobileGuideBtn" type="button" style="background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 6px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
           <span>📖</span>
           <span>Guide</span>
         </button>
 
         <div id="mobileStatusPill" class="mobile-status-pill">
           <span class="status-dot"></span>
-          <span id="mobileStatusText">Connected to PC</span>
+          <span id="mobileStatusText">Connected</span>
         </div>
       </div>
     </header>
+
+    <!-- Remote PC Banner Card -->
+    <div id="remotePcPromoCard" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="font-size: 26px;">🖥️</div>
+        <div>
+          <div style="font-size: 13.5px; font-weight: 700; color: #fff;">Control Your PC Screen</div>
+          <div style="font-size: 11.5px; color: #cbd5e1;">Live desktop stream, touch mouse, typing &amp; shortcuts</div>
+        </div>
+      </div>
+      <button type="button" style="background: linear-gradient(135deg, #a855f7 0%, #2563eb 100%); border: none; color: #fff; font-size: 12px; font-weight: 800; padding: 8px 14px; border-radius: 9px; cursor: pointer; flex-shrink: 0; box-shadow: 0 2px 10px rgba(168, 85, 247, 0.35);">
+        Open ➔
+      </button>
+    </div>
 
     <!-- Room / Pairing Banner -->
     <div id="roomPairingBanner" style="background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
@@ -878,10 +1073,102 @@
     </div>
   </div>
 
+  <!-- Fullscreen Remote Desktop Viewer Overlay -->
+  <div id="remoteDesktopOverlay" class="remote-overlay" style="display: none;">
+    <!-- Top Bar -->
+    <div class="remote-top-bar">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+        <span id="remoteStatusTitle" style="font-size: 13px; font-weight: 700; color: #fff;">Remote PC</span>
+      </div>
+      <div style="display: flex; gap: 6px;">
+        <button id="toggleRemoteModeBtn" class="remote-btn-chip" type="button" title="Switch Trackpad / Direct Touch">
+          <span id="remoteModeIcon">🖱️</span> <span id="remoteModeText">Trackpad</span>
+        </button>
+        <button id="toggleRemoteKeyboardBtn" class="remote-btn-chip" type="button" title="Open Virtual Keyboard">
+          ⌨️ Keys
+        </button>
+        <button id="toggleQuickActionsBtn" class="remote-btn-chip" type="button" title="Windows Shortcuts">
+          ⚡ Win
+        </button>
+        <button id="closeRemoteOverlayBtn" class="remote-btn-chip close-chip" type="button" title="Exit Remote Control">
+          ✖️ Exit
+        </button>
+      </div>
+    </div>
+
+    <!-- Video Canvas Container -->
+    <div id="remoteVideoWrapper" class="remote-video-container">
+      <video id="remoteScreenVideo" autoplay playsinline muted></video>
+      <div id="remoteTouchSurface" class="remote-touch-surface"></div>
+
+      <!-- Waiting / Start Card -->
+      <div id="remoteWaitingCard" class="remote-waiting-card">
+        <div style="font-size: 42px; margin-bottom: 8px;">🖥️ 🔗 📱</div>
+        <h3 id="remoteWaitingTitle" style="font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 6px;">
+          Remote PC Desktop
+        </h3>
+        <p id="remoteWaitingMsg" style="font-size: 12.5px; color: #94a3b8; max-width: 300px; line-height: 1.5; margin-bottom: 18px;">
+          View your computer screen and control mouse &amp; keyboard right from your phone.
+        </p>
+        <button id="requestRemoteStartBtn" type="button" style="background: linear-gradient(135deg, #a855f7 0%, #2563eb 100%); color: #fff; border: none; font-size: 14px; font-weight: 800; padding: 12px 24px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);">
+          🚀 Connect to PC Screen
+        </button>
+      </div>
+    </div>
+
+    <!-- Virtual Keyboard Drawer -->
+    <div id="remoteKeyboardDrawer" class="remote-keyboard-drawer" style="display: none;">
+      <div class="remote-typing-row">
+        <input type="text" id="remoteTextInput" placeholder="Type text to send to PC..." autocomplete="off">
+        <button id="sendRemoteTextBtn" type="button">Send ⏎</button>
+      </div>
+      <div class="remote-keys-grid">
+        <button class="pc-key-btn" data-key="{ENTER}">Enter ↵</button>
+        <button class="pc-key-btn" data-key="{ESC}">Esc</button>
+        <button class="pc-key-btn" data-key="{BACKSPACE}">⌫ Del</button>
+        <button class="pc-key-btn" data-key="{TAB}">Tab ⇥</button>
+        <button class="pc-key-btn" data-key="^c">Ctrl+C</button>
+        <button class="pc-key-btn" data-key="^v">Ctrl+V</button>
+        <button class="pc-key-btn" data-key="^a">Ctrl+A</button>
+        <button class="pc-key-btn" data-key="^z">Ctrl+Z</button>
+        <button class="pc-key-btn" data-key="{UP}">▲ Up</button>
+        <button class="pc-key-btn" data-key="{DOWN}">▼ Down</button>
+        <button class="pc-key-btn" data-key="{LEFT}">◀ Left</button>
+        <button class="pc-key-btn" data-key="{RIGHT}">▶ Right</button>
+      </div>
+    </div>
+
+    <!-- Quick Windows Shortcuts Drawer -->
+    <div id="remoteQuickDrawer" class="remote-keyboard-drawer" style="display: none;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px;">
+        ⚡ Windows Quick Actions
+      </div>
+      <div class="remote-keys-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <button class="pc-key-btn" data-shortcut="win">⊞ Start Menu</button>
+        <button class="pc-key-btn" data-shortcut="explorer">📁 File Explorer</button>
+        <button class="pc-key-btn" data-shortcut="taskmgr">⚡ Task Manager</button>
+        <button class="pc-key-btn" data-shortcut="lock">🔒 Lock Computer</button>
+        <button class="pc-key-btn" data-shortcut="volup">🔊 Volume Up</button>
+        <button class="pc-key-btn" data-shortcut="voldown">🔉 Volume Down</button>
+        <button class="pc-key-btn" data-shortcut="volmute">🔇 Mute Audio</button>
+        <button class="pc-key-btn" data-key="%{TAB}">🔄 Alt + Tab</button>
+      </div>
+    </div>
+
+    <!-- Bottom Mouse Buttons -->
+    <div id="remoteTrackpadButtons" class="remote-bottom-bar">
+      <button id="leftClickBtn" class="mouse-btn left" type="button">Left Click</button>
+      <button id="scrollUpBtn" class="mouse-btn scroll" type="button">▲ Scroll</button>
+      <button id="scrollDownBtn" class="mouse-btn scroll" type="button">▼ Scroll</button>
+      <button id="rightClickBtn" class="mouse-btn right" type="button">Right Click</button>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/mobile.js?v=17"></script>
+  <script src="/js/mobile.js?v=20"></script>
 </body>
 </html>
