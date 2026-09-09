@@ -425,15 +425,24 @@ document.addEventListener('DOMContentLoaded', () => {
       allFiles = data.files || [];
       renderFiles();
 
-      // If Auto-Save is enabled, auto-save any incoming files that arrived while tab was closed!
+      // If Auto-Save is enabled and directory handle is ready, save directly to PC folder!
       if (autoSaveToPc && allFiles.length > 0) {
-        allFiles.forEach((file, index) => {
-          if (!syncedFiles.has(file.name)) {
-            setTimeout(() => {
-              saveFileDirectlyToPcFolder(file);
-            }, index * 400);
+        if (chosenDirectoryHandle) {
+          allFiles.forEach((file, index) => {
+            if (!syncedFiles.has(file.name)) {
+              setTimeout(() => {
+                saveFileDirectlyToPcFolder(file);
+              }, index * 300);
+            }
+          });
+        } else {
+          const unsaved = allFiles.filter(f => !syncedFiles.has(f.name));
+          if (unsaved.length > 0 && unsaved.length <= 2) {
+            unsaved.forEach(f => triggerBrowserDownload(f));
+          } else if (unsaved.length > 2) {
+            showToast(`📥 ${unsaved.length} new files ready! Click "Download All" to save to PC`, '📥');
           }
-        });
+        }
       }
     } catch (err) {
       console.error('Failed to load files:', err);
