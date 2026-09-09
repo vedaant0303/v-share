@@ -21,7 +21,7 @@ import java.util.ArrayList;
 public class ShareActivity extends Activity {
     private static final String PREFS_NAME = "DropFilePrefs";
     private static final String KEY_SERVER_URL = "server_url";
-    private static final String DEFAULT_URL = "http://192.168.0.101:4000";
+    private static final String DEFAULT_URL = "https://v-share-o68m.onrender.com";
 
     private TextView shareStatus;
     private TextView shareFileName;
@@ -37,6 +37,9 @@ public class ShareActivity extends Activity {
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         serverUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_URL);
+        if (serverUrl == null || serverUrl.contains("192.168.") || serverUrl.contains(":4000")) {
+            serverUrl = DEFAULT_URL;
+        }
 
         handleIncomingShare(getIntent());
     }

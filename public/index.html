@@ -82,6 +82,11 @@
           </svg>
           <span id="chosenFolderText">📂 Choose PC Folder</span>
         </button>
+
+        <button id="openPcGuideBtn" class="header-btn" title="Complete Guide: How to Use V-Share" style="background: rgba(0, 242, 254, 0.12); border-color: rgba(0, 242, 254, 0.35); color: #00f2fe; font-weight: 600;">
+          <span>📖</span>
+          <span>User Guide</span>
+        </button>
       </div>
     </header>
 
@@ -292,10 +297,67 @@
     </div>
   </div>
 
+  <!-- User Guide Modal for PC -->
+  <div id="pcGuideModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 540px; width: 92%;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px; color: #00f2fe;">
+          <span>📖</span>
+          <span>How to Use V-Share</span>
+        </h3>
+        <button id="closePcGuideBtn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px; font-size: 13.5px; color: #cbd5e1; line-height: 1.5; padding: 18px 22px;">
+        
+        <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 12px; padding: 12px 14px;">
+          <h4 style="color: #60a5fa; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>1️⃣</span> <span>Connect Your Phone</span>
+          </h4>
+          <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
+            Scan the on-screen QR code with your phone camera, or enter your 6-digit Private Pairing Code on your phone. Your phone will immediately connect with a green indicator!
+          </p>
+        </div>
+
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 12px 14px;">
+          <h4 style="color: #34d399; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>2️⃣</span> <span>Receive Files Automatically (Zero Clicks)</span>
+          </h4>
+          <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
+            Whenever you drop photos, videos, or documents from your phone, they are saved directly into your computer's <b>Downloads\Submitt</b> folder. Click <b>"📂 Choose Folder"</b> to pick any other folder.
+          </p>
+        </div>
+
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 12px 14px;">
+          <h4 style="color: #fbbf24; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>3️⃣</span> <span>Silent Background Mode (No Open Tabs Needed!)</span>
+          </h4>
+          <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
+            You do <b>not</b> need to keep this window open on your taskbar! V-Share runs silently in the background on your PC. You can close this window completely — when a file arrives, a Windows notification will alert you!
+          </p>
+        </div>
+
+        <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 12px 14px;">
+          <h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>4️⃣</span> <span>Multiple PCs on the Same Wi-Fi</span>
+          </h4>
+          <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
+            If you have 2 PCs in your house, click the <b>🎲</b> button next to the pairing code on PC 2. This gives PC 2 its own unique code. On your phone, you can switch between PC 1 and PC 2 with just 1 tap!
+          </p>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end;">
+        <button id="gotItPcGuideBtn" class="header-btn" style="background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 600; padding: 8px 20px;">
+          Got It!
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/pc.js?v=18"></script>
+  <script src="/js/pc.js?v=19"></script>
 </body>
 </html>

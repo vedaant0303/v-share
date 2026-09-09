@@ -1281,6 +1281,32 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('V-Share installed as a Desktop App!', '🎉');
   });
 
+  // User Guide Modal
+  const openPcGuideBtn = document.getElementById('openPcGuideBtn');
+  const pcGuideModal = document.getElementById('pcGuideModal');
+  const closePcGuideBtn = document.getElementById('closePcGuideBtn');
+  const gotItPcGuideBtn = document.getElementById('gotItPcGuideBtn');
+
+  if (openPcGuideBtn && pcGuideModal) {
+    openPcGuideBtn.addEventListener('click', () => {
+      pcGuideModal.classList.add('active');
+    });
+  }
+
+  [closePcGuideBtn, gotItPcGuideBtn].forEach(btn => {
+    if (btn && pcGuideModal) {
+      btn.addEventListener('click', () => {
+        pcGuideModal.classList.remove('active');
+      });
+    }
+  });
+
+  if (pcGuideModal) {
+    pcGuideModal.addEventListener('click', (e) => {
+      if (e.target === pcGuideModal) pcGuideModal.classList.remove('active');
+    });
+  }
+
   // Initial Boot
   restoreSavedDirectory();
   loadSystemInfo();

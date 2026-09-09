@@ -454,9 +454,16 @@
         <img src="/logo-icon.png" alt="V-Share" class="brand-icon-img" style="height: 48px; width: 48px; object-fit: contain; filter: drop-shadow(0 3px 12px rgba(0, 150, 255, 0.45));">
       </div>
 
-      <div id="mobileStatusPill" class="mobile-status-pill">
-        <span class="status-dot"></span>
-        <span id="mobileStatusText">Connected to PC</span>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button id="openMobileGuideBtn" type="button" style="background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 6px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+          <span>📖</span>
+          <span>Guide</span>
+        </button>
+
+        <div id="mobileStatusPill" class="mobile-status-pill">
+          <span class="status-dot"></span>
+          <span id="mobileStatusText">Connected to PC</span>
+        </div>
       </div>
     </header>
 
@@ -809,10 +816,72 @@
     </div>
   </div>
 
+  <!-- Mobile User Guide Modal -->
+  <div id="mobileGuideModal" class="beam-modal">
+    <div class="beam-modal-card" style="max-width: 440px; text-align: left; max-height: 85vh; overflow-y: auto; padding: 22px;">
+      <button id="closeMobileGuideBtn" class="beam-close-btn">&times;</button>
+      <div style="text-align: center; margin-bottom: 16px;">
+        <span style="font-size: 34px;">📖</span>
+        <h3 style="font-size: 19px; font-weight: 800; color: #fff; margin: 6px 0 3px;">How to Use V-Share</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 0;">Quick guide to transferring files seamlessly</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12.5px;">
+        <!-- Step 1 -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span style="background: rgba(56,189,248,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">1</span>
+            Pair Phone with Your PC
+          </div>
+          <div style="color: #cbd5e1; line-height: 1.45;">
+            Open V-Share on your PC screen. Tap <b>Scan QR</b> on this phone and point your camera at the PC QR code (or type the 6-digit code).
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
+          <div style="font-weight: 700; color: #a855f7; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span style="background: rgba(168,85,247,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">2</span>
+            Send Files from This Phone
+          </div>
+          <div style="color: #cbd5e1; line-height: 1.45;">
+            Tap the big upload box or <b>Browse Files / Photos</b>, select any file, photo, or PDF, and tap <b>Send to PC</b>. It uploads instantly.
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
+          <div style="font-weight: 700; color: #10b981; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span style="background: rgba(16,185,129,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">3</span>
+            Automatic Saving on PC
+          </div>
+          <div style="color: #cbd5e1; line-height: 1.45;">
+            Your PC automatically receives files straight into <code style="background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px; color: #67e8f9;">Downloads\Submitt</code>. No manual clicking needed!
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
+          <div style="font-weight: 700; color: #f59e0b; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span style="background: rgba(245,158,11,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">4</span>
+            Share from Drive / WhatsApp (App)
+          </div>
+          <div style="color: #cbd5e1; line-height: 1.45;">
+            Install the <b>V-Share Android App</b> above. In Google Drive, Photos, or Files, tap regular <b>Share</b> &rarr; choose <b>Send to PC (V-Share)</b>!
+          </div>
+        </div>
+      </div>
+
+      <button id="gotItMobileGuideBtn" type="button" style="width: 100%; margin-top: 16px; padding: 11px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;">
+        Got It, Let's Share!
+      </button>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/mobile.js?v=16"></script>
+  <script src="/js/mobile.js?v=17"></script>
 </body>
 </html>

@@ -1287,6 +1287,33 @@ function initMobileApp() {
     });
   }
 
+  // Mobile User Guide Modal
+  const openMobileGuideBtn = document.getElementById('openMobileGuideBtn');
+  const mobileGuideModal = document.getElementById('mobileGuideModal');
+  const closeMobileGuideBtn = document.getElementById('closeMobileGuideBtn');
+  const gotItMobileGuideBtn = document.getElementById('gotItMobileGuideBtn');
+
+  if (openMobileGuideBtn && mobileGuideModal) {
+    openMobileGuideBtn.addEventListener('click', () => {
+      mobileGuideModal.classList.add('active');
+    });
+  }
+
+  [closeMobileGuideBtn, gotItMobileGuideBtn].forEach(btn => {
+    if (btn && mobileGuideModal) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mobileGuideModal.classList.remove('active');
+      });
+    }
+  });
+
+  if (mobileGuideModal) {
+    mobileGuideModal.addEventListener('click', (e) => {
+      if (e.target === mobileGuideModal) mobileGuideModal.classList.remove('active');
+    });
+  }
+
   // Check if opened after native share
   if (window.location.search.includes('shared=success')) {
     playSuccessChime();

@@ -29,7 +29,7 @@ import java.net.URL;
 public class MainActivity extends Activity {
     private static final String PREFS_NAME = "DropFilePrefs";
     private static final String KEY_SERVER_URL = "server_url";
-    private static final String DEFAULT_URL = "http://192.168.0.101:4000";
+    private static final String DEFAULT_URL = "https://v-share-o68m.onrender.com";
     private static final int REQUEST_PICK_FILE = 1001;
     private static final int REQUEST_FILE_CHOOSER = 1002;
     private static final int REQUEST_CAMERA_PERMISSION = 1003;
@@ -69,6 +69,10 @@ public class MainActivity extends Activity {
         Button btnSettingsFromWeb = findViewById(R.id.btnSettingsFromWeb);
 
         String savedUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_URL);
+        if (savedUrl == null || savedUrl.contains("192.168.") || savedUrl.contains(":4000")) {
+            savedUrl = DEFAULT_URL;
+            prefs.edit().putString(KEY_SERVER_URL, DEFAULT_URL).apply();
+        }
         ipInput.setText(savedUrl);
 
         // Setup In-App WebView

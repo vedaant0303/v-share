@@ -99,7 +99,7 @@
                 android:textSize="16sp"
                 android:paddingLeft="14dp"
                 android:paddingRight="14dp"
-                android:hint="http://192.168.0.101:4000"
+                android:hint="https://v-share-o68m.onrender.com"
                 android:textColorHint="#4b5563"
                 android:inputType="textUri"
                 android:singleLine="true" />
@@ -157,19 +157,19 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="💡 How to share from ANY app:"
-                android:textSize="15sp"
+                android:text="📖 Complete Guide: How to Use V-Share"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#ffffff"
-                android:layout_marginBottom="10dp" />
+                android:textColor="#00f2fe"
+                android:layout_marginBottom="12dp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="1. Open any document in Google Drive, DocScan, Files, or WhatsApp.\n\n2. Tap the normal 'Share' icon.\n\n3. Select 'Send to PC (V-Share)' from the app list.\n\n4. Your document will instantly upload straight to your PC!"
+                android:text="1️⃣ Send from In-App Dashboard:\nTap 'Open In-App File Dashboard' above. Tap any file or photo to drop it instantly to your PC.\n\n2️⃣ Share from ANY Other App:\nIn Google Drive, DocScan, Gallery, Files, or WhatsApp, tap the normal 'Share' icon and choose 'Send to PC (V-Share)'. The document streams straight to your computer!\n\n3️⃣ Multiple PCs on Same Wi-Fi:\nAt the top of the dashboard, you will see your target PCs. Simply tap the PC you want to send to!\n\n4️⃣ Where Files Land on PC:\nFiles automatically save directly into your PC's folder (Downloads\\Submitt) — even when the V-Share window is closed!"
                 android:textSize="13sp"
                 android:textColor="#9ca3af"
-                android:lineSpacingMultiplier="1.3" />
+                android:lineSpacingMultiplier="1.35" />
 
         </LinearLayout>
     </ScrollView>
