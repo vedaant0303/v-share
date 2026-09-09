@@ -193,7 +193,6 @@ function initRemoteInputBridge() {
     }
   } else if (fs.existsSync(localExePath)) {
     binPath = localExePath;
-  }
   } else if (fs.existsSync(csSourcePath)) {
     // Auto-compile from source
     console.log('[RemoteInput] Compiling VRemoteInput.cs...');
