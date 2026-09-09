@@ -36,6 +36,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const refreshRoomCodeBtn = document.getElementById('refreshRoomCodeBtn');
+  if (refreshRoomCodeBtn) {
+    refreshRoomCodeBtn.addEventListener('click', () => {
+      const newCode = String(Math.floor(100000 + Math.random() * 900000));
+      setRoomCode(newCode);
+      loadSystemInfo();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'join_room',
+          roomId: newCode,
+          role: 'pc'
+        }));
+      }
+      showToast(`Generated new private code for this PC: ${newCode}`, '🎲');
+    });
+  }
+
   // Synced files tracker so reopened tabs don't re-download files already saved
   let syncedFiles = new Set(JSON.parse(localStorage.getItem('vshare_synced_files') || '[]'));
 
