@@ -1082,6 +1082,17 @@ server.listen(PORT, '0.0.0.0', () => {
     }, 10 * 60 * 1000); // 10 minutes (well before the 15-minute sleep threshold)
   }
 
+  // Native Windows Notification Helper
+  function showWindowsNotification(title, message) {
+    if (process.platform !== 'win32') return;
+    const script = path.join(__dirname, 'notify.ps1');
+    if (fs.existsSync(script)) {
+      const cleanTitle = (title || 'V-Share').replace(/["`$]/g, '');
+      const cleanMsg = (message || '').replace(/["`$]/g, '');
+      exec(`powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${script}" -title "${cleanTitle}" -message "${cleanMsg}"`, () => {});
+    }
+  }
+
   // Automatic Cloud Bridge: When running on local PC, sync files dropped on Render Cloud directly to disk!
   if (!process.env.RENDER && !process.env.RENDER_EXTERNAL_URL) {
     function startCloudBridge() {
@@ -1118,6 +1129,7 @@ server.listen(PORT, '0.0.0.0', () => {
               role: 'pc'
             }));
             console.log(`🔗 [Cloud Bridge] Paired with Cloud Room ${cloudRoomId}. Incoming files will write directly to ${UPLOAD_DIR}`);
+            showWindowsNotification('V-Share Background Active 🟢', `Ready! Incoming files write to ${UPLOAD_DIR}`);
           }
         } catch (e) {
           console.warn('[Cloud Bridge] Info notice:', e.message);
@@ -1142,6 +1154,7 @@ server.listen(PORT, '0.0.0.0', () => {
               res.pipe(fileStream);
               fileStream.on('finish', () => {
                 console.log(`🎉 [Cloud Bridge] Successfully saved "${fileName}" directly to PC disk!`);
+                showWindowsNotification('V-Share: File Received! 📥', `Saved "${fileName}" to ${UPLOAD_DIR}`);
                 broadcast({
                   type: 'file_received',
                   file: msg.file,
