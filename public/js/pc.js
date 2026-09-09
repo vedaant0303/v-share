@@ -7,24 +7,32 @@ document.addEventListener('DOMContentLoaded', () => {
   let autoSaveToPc = localStorage.getItem('vshare_auto_save') !== 'false';
   let chosenDirectoryHandle = null;
 
-  // Private Room Pairing Identifier (In-Memory Pairing, Zero Database)
-  let currentRoomId = sessionStorage.getItem('vshare_pc_room_id');
-  if (!currentRoomId) {
-    currentRoomId = Math.floor(100000 + Math.random() * 900000).toString();
-    sessionStorage.setItem('vshare_pc_room_id', currentRoomId);
+  // Persistent Room Pairing Identifier (Stored in localStorage so it stays identical across tabs and browser restarts)
+  let currentRoomId = localStorage.getItem('vshare_pc_room_id') || '';
+
+  function setRoomCode(code) {
+    if (!code) return;
+    currentRoomId = String(code).trim();
+    localStorage.setItem('vshare_pc_room_id', currentRoomId);
+    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+    if (roomCodeDisplay) {
+      roomCodeDisplay.textContent = currentRoomId.length === 6
+        ? `${currentRoomId.substring(0, 3)} ${currentRoomId.substring(3)}`
+        : currentRoomId;
+    }
   }
 
-  // Display Pairing Code in UI
-  const roomCodeDisplay = document.getElementById('roomCodeDisplay');
-  if (roomCodeDisplay) {
-    roomCodeDisplay.textContent = `${currentRoomId.substring(0, 3)} ${currentRoomId.substring(3)}`;
+  if (currentRoomId) {
+    setRoomCode(currentRoomId);
   }
 
   const copyRoomCodeBtn = document.getElementById('copyRoomCodeBtn');
   if (copyRoomCodeBtn) {
     copyRoomCodeBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(currentRoomId);
-      showToast(`Copied pairing code: ${currentRoomId}`, '🔒');
+      if (currentRoomId) {
+        navigator.clipboard.writeText(currentRoomId);
+        showToast(`Copied pairing code: ${currentRoomId}`, '🔒');
+      }
     });
   }
 
@@ -167,8 +175,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fetch System Info & QR Code
   async function loadSystemInfo() {
     try {
-      const res = await fetch(`/api/info?room=${encodeURIComponent(currentRoomId)}`);
+      const roomParam = currentRoomId ? `room=${encodeURIComponent(currentRoomId)}` : '';
+      const res = await fetch(`/api/info?${roomParam}`);
       systemInfo = await res.json();
+
+      // If no room ID was previously saved, adopt the stable network/Wi-Fi room code!
+      if (!currentRoomId && (systemInfo.roomId || systemInfo.networkRoomCode)) {
+        setRoomCode(systemInfo.roomId || systemInfo.networkRoomCode);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'join_room',
+            roomId: currentRoomId,
+            role: 'pc'
+          }));
+        }
+      }
+
       renderFiles();
 
       const qrImg = document.getElementById('qrImage');
@@ -850,11 +872,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ws.onopen = () => {
       console.log('Connected to DropFile WebSocket');
-      ws.send(JSON.stringify({
-        type: 'join_room',
-        roomId: currentRoomId,
-        role: 'pc'
-      }));
+      if (currentRoomId) {
+        ws.send(JSON.stringify({
+          type: 'join_room',
+          roomId: currentRoomId,
+          role: 'pc'
+        }));
+      }
     };
 
     ws.onmessage = (event) => {

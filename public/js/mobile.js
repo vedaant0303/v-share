@@ -181,6 +181,20 @@ function initMobileApp() {
       const res = await fetch('/api/info', { cache: 'no-cache' });
       if (res.ok) {
         setConnected(true);
+        const data = await res.json();
+        // If phone has not paired yet, auto-adopt the stable Wi-Fi network room code!
+        if (!currentRoomId && (data.networkRoomCode || data.roomId)) {
+          currentRoomId = data.networkRoomCode || data.roomId;
+          localStorage.setItem('vshare_room_id', currentRoomId);
+          updateRoomPairingUi(currentRoomId, false);
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'join_room',
+              roomId: currentRoomId,
+              role: 'mobile'
+            }));
+          }
+        }
       }
     } catch (err) {
       setConnected(false);

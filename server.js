@@ -353,12 +353,27 @@ if (process.argv.includes('--tunnel') || process.env.ENABLE_TUNNEL === 'true') {
   startCloudflareTunnel();
 }
 
+// Helper: Generate deterministic 6-digit room code for client's network/Wi-Fi
+function getNetworkRoomCode(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const rawIp = forwarded ? forwarded.split(',')[0].trim() : (req.socket.remoteAddress || '127.0.0.1');
+  const ip = rawIp.replace(/^.*:/, ''); // Normalize IPv6 mapped IPv4 like ::ffff:192.168.0.1
+  let hash = 0;
+  for (let i = 0; i < ip.length; i++) {
+    hash = ((hash << 5) - hash) + ip.charCodeAt(i);
+    hash |= 0;
+  }
+  const code = (Math.abs(hash) % 900000) + 100000;
+  return String(code);
+}
+
 // API: System Info, Network IPs, & QR Code
 app.get('/api/info', async (req, res) => {
   try {
     const interfaces = getNetworkAddresses();
     let mobileUrl;
     const selectedIp = req.query.ip;
+    const networkRoomCode = getNetworkRoomCode(req);
 
     const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.PUBLIC_URL;
     if (renderUrl) {
@@ -394,7 +409,7 @@ app.get('/api/info', async (req, res) => {
       mobileUrl = `http://${primaryIp}:${PORT}/mobile`;
     }
 
-    const roomId = req.query.room ? String(req.query.room).trim() : '';
+    const roomId = req.query.room ? String(req.query.room).trim() : networkRoomCode;
     if (roomId) {
       mobileUrl += (mobileUrl.includes('?') ? '&' : '?') + `room=${encodeURIComponent(roomId)}`;
     }
@@ -414,6 +429,7 @@ app.get('/api/info', async (req, res) => {
       mobileUrl,
       qrDataUrl,
       roomId,
+      networkRoomCode,
       interfaces,
       tunnelActive: !!activeTunnelUrl,
       tunnelUrl: activeTunnelUrl,
