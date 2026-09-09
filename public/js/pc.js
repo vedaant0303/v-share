@@ -97,14 +97,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (handle) {
         chosenDirectoryHandle = handle;
         const folderName = handle.name || savedName || 'Selected Folder';
+
+        let isGranted = false;
+        if (handle.queryPermission) {
+          try {
+            const perm = await handle.queryPermission({ mode: 'readwrite' });
+            isGranted = (perm === 'granted');
+          } catch (e) {}
+        }
+
         if (chosenFolderText) {
-          chosenFolderText.textContent = `📁 ${folderName}`;
+          chosenFolderText.textContent = isGranted ? `📁 ${folderName}` : `📁 ${folderName} (Click to activate)`;
         }
         if (chooseFolderBtn) {
-          chooseFolderBtn.style.background = 'rgba(16, 185, 129, 0.25)';
-          chooseFolderBtn.style.borderColor = '#10b981';
-          chooseFolderBtn.style.color = '#34d399';
-          chooseFolderBtn.title = `Auto-saving directly to PC folder: ${folderName}`;
+          chooseFolderBtn.style.background = isGranted ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.2)';
+          chooseFolderBtn.style.borderColor = isGranted ? '#10b981' : '#f59e0b';
+          chooseFolderBtn.style.color = isGranted ? '#34d399' : '#fbbf24';
+          chooseFolderBtn.title = isGranted ? `Auto-saving directly to PC folder: ${folderName}` : `Click to activate write permission for ${folderName}`;
         }
         return;
       }
@@ -123,6 +132,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (chooseFolderBtn) {
     chooseFolderBtn.addEventListener('click', async () => {
+      // If we already have a chosenDirectoryHandle needing permission activation:
+      if (chosenDirectoryHandle && chosenDirectoryHandle.queryPermission) {
+        try {
+          const perm = await chosenDirectoryHandle.queryPermission({ mode: 'readwrite' });
+          if (perm !== 'granted') {
+            const req = await chosenDirectoryHandle.requestPermission({ mode: 'readwrite' });
+            if (req === 'granted') {
+              const folderName = chosenDirectoryHandle.name || 'Selected Folder';
+              if (chosenFolderText) chosenFolderText.textContent = `📁 ${folderName}`;
+              chooseFolderBtn.style.background = 'rgba(16, 185, 129, 0.25)';
+              chooseFolderBtn.style.borderColor = '#10b981';
+              chooseFolderBtn.style.color = '#34d399';
+              showToast(`✅ Folder permission activated for: ${folderName}`, '📂');
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
       if (!('showDirectoryPicker' in window)) {
         showToast('Your browser saves files to PC Downloads automatically! (Chrome/Edge supports custom folder picker)', 'ℹ️');
         return;
@@ -165,14 +193,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (chosenDirectoryHandle.queryPermission) {
         const status = await chosenDirectoryHandle.queryPermission({ mode: 'readwrite' });
         if (status !== 'granted') {
-          const reqStatus = await chosenDirectoryHandle.requestPermission({ mode: 'readwrite' });
-          if (reqStatus !== 'granted') {
-            if (autoSaveToPc) {
-              triggerBrowserDownload(file);
-              markFileSynced(file.name);
-            }
-            return;
+          // If not granted, fall back to browser download
+          if (autoSaveToPc) {
+            triggerBrowserDownload(file);
+            markFileSynced(file.name);
           }
+          return;
         }
       }
 
