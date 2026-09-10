@@ -632,7 +632,13 @@ function initMobileApp() {
             // Direct hardware-accelerated image blitting for Android & iOS
             if (screenImg) {
               screenImg.src = 'data:image/jpeg;base64,' + frameData;
-              if (screenImg.style.display !== 'block') screenImg.style.display = 'block';
+              screenImg.style.display = 'block';
+              if (remoteScreenVideo && (!remoteScreenVideo.srcObject || remoteScreenVideo.paused)) {
+                remoteScreenVideo.style.display = 'none';
+              }
+              const guide = document.getElementById('remoteStreamGuideOverlay');
+              if (guide) guide.style.display = 'none';
+              updateRemoteControlStatus(true);
             }
 
             // Canvas fallback
@@ -1409,19 +1415,15 @@ function initMobileApp() {
     if (!badge || !dot || !text) return;
 
     if (isActive) {
+      badge.style.display = 'flex';
       badge.style.background = 'rgba(16, 185, 129, 0.2)';
       badge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
       badge.style.color = '#6ee7b7';
       dot.style.background = '#10b981';
       dot.style.boxShadow = '0 0 8px #10b981';
-      text.textContent = '🟢 Remote Control Active';
+      text.textContent = 'Remote Control Active';
     } else {
-      badge.style.background = 'rgba(245, 158, 11, 0.2)';
-      badge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
-      badge.style.color = '#fcd34d';
-      dot.style.background = '#f59e0b';
-      dot.style.boxShadow = '0 0 8px #f59e0b';
-      text.textContent = '👁️ View Only';
+      badge.style.display = 'none';
     }
   }
 
@@ -1487,10 +1489,20 @@ function initMobileApp() {
       remoteControlActive = true;
       primeRemoteVideoPlayback();
 
-      const guide = document.getElementById('remoteStreamGuideOverlay');
-      if (guide && (!remoteScreenVideo || !remoteScreenVideo.videoWidth)) {
-        guide.style.display = 'flex';
+      const guideRoomCode = document.getElementById('guideRoomCode');
+      if (guideRoomCode && currentRoomId) {
+        guideRoomCode.textContent = currentRoomId.length === 6
+          ? `${currentRoomId.substring(0, 3)} ${currentRoomId.substring(3)}`
+          : currentRoomId;
       }
+
+      const hasVideo = remoteScreenVideo && remoteScreenVideo.videoWidth > 0 && !remoteScreenVideo.paused;
+      const guide = document.getElementById('remoteStreamGuideOverlay');
+      if (guide) {
+        guide.style.display = hasVideo ? 'none' : 'flex';
+      }
+
+      updateRemoteControlStatus(hasVideo);
 
       // Auto-switch to landscape mode in Android Native App & Web Browser
       if (window.AndroidHost && window.AndroidHost.setLandscape) {

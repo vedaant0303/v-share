@@ -1137,8 +1137,8 @@
       🔄 Rotate phone to landscape for widescreen
     </div>
 
-    <!-- Connection & Remote Control State Pill Badge -->
-    <div id="remoteControlStatusBadge" style="position: absolute; top: 14px; left: 14px; z-index: 10005; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7; padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 700; backdrop-filter: blur(8px); display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); pointer-events: none;">
+    <!-- Connection & Remote Control State Pill Badge (Hidden until active) -->
+    <div id="remoteControlStatusBadge" style="display: none; position: absolute; top: 14px; left: 14px; z-index: 10005; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7; padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 700; backdrop-filter: blur(8px); align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); pointer-events: none;">
       <span id="remoteStatusBadgeDot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
       <span id="remoteStatusBadgeText">Remote Control Active</span>
     </div>
@@ -1161,19 +1161,22 @@
       </div>
 
       <!-- Interactive Guidance Overlay (shown when PC screen stream is pending) -->
-      <div id="remoteStreamGuideOverlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10003; background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(168, 85, 247, 0.5); backdrop-filter: blur(14px); border-radius: 16px; padding: 14px 22px; color: #fff; max-width: 92%; width: 440px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.65);">
-        <div style="font-size: 14.5px; font-weight: 700; color: #c084fc; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <span>🖥️</span> <span>How to See Your PC Screen</span>
+      <div id="remoteStreamGuideOverlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10003; background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(168, 85, 247, 0.6); backdrop-filter: blur(14px); border-radius: 16px; padding: 16px 24px; color: #fff; max-width: 94%; width: 460px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.75);">
+        <div style="font-size: 15px; font-weight: 800; color: #c084fc; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🖥️</span> <span>Waiting for PC Screen Stream</span>
         </div>
-        <div style="font-size: 12px; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px; text-align: left;">
-          1. Make sure your PC is awake and unlocked.<br>
-          2. Open <b>http://localhost:4000</b> on your PC in Chrome/Edge.<br>
-          3. Click <b>"🖥️ Remote Control"</b> &rarr; select <b>"Entire screen"</b> &rarr; <b>Share</b>.<br>
-          <span style="color: #38bdf8;">Your PC screen will instantly appear here with full touch control!</span>
+        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px; text-align: left;">
+          1. On your PC browser, click <b>"🖥️ Remote Control"</b> (or <b>"Share Screen"</b> on the popup).<br>
+          2. In the browser dialog, select <b>"Entire Screen"</b> and click <b>Share</b>.<br>
+          <div style="margin-top: 6px; padding: 6px 10px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; font-size: 12px; color: #38bdf8;">
+            Connected Pairing Code: <b id="guideRoomCode" style="color: #fff; letter-spacing: 1px;">------</b>
+          </div>
         </div>
-        <button id="reRequestScreenBtn" type="button" style="background: linear-gradient(135deg, #a855f7, #2563eb); color: #fff; border: none; font-size: 12.5px; font-weight: 700; padding: 8px 20px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4);">
-          🔔 Open / Ping PC Dashboard
-        </button>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="reRequestScreenBtn" type="button" style="background: linear-gradient(135deg, #a855f7, #2563eb); color: #fff; border: none; font-size: 12.5px; font-weight: 700; padding: 10px 22px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4);">
+            🔔 Alert PC Screen Share
+          </button>
+        </div>
       </div>
 
       <!-- noVNC-Style Mobile Control Dock at the Bottom -->
