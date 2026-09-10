@@ -228,8 +228,8 @@ app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }),
     if (roomId && rooms.has(roomId)) {
       const room = rooms.get(roomId);
       for (const pc of room.pcClients) {
-        // Zero-Lag Guarantee: only push if client has drained previous frame
-        if (pc.readyState === WebSocket.OPEN && pc.bufferedAmount === 0) {
+        // Zero-Lag Guarantee: only push if client buffer is low (< 64KB)
+        if (pc.readyState === WebSocket.OPEN && pc.bufferedAmount < 64 * 1024) {
           pc.send(req.body);
           sent = true;
         }
@@ -238,7 +238,7 @@ app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }),
     // Fallback: if no PC in that specific room yet, broadcast to any connected PC
     if (!sent) {
       for (const client of clients) {
-        if ((client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount === 0) {
+        if ((client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount < 64 * 1024) {
           client.send(req.body);
           sent = true;
         }
@@ -479,7 +479,7 @@ wss.on('connection', (ws, req) => {
       if (ws.roomId && rooms.has(ws.roomId)) {
         const room = rooms.get(ws.roomId);
         for (const pc of room.pcClients) {
-          if (pc.readyState === WebSocket.OPEN && pc.bufferedAmount === 0) {
+          if (pc.readyState === WebSocket.OPEN && pc.bufferedAmount < 64 * 1024) {
             pc.send(message);
             sent = true;
           }
@@ -487,7 +487,7 @@ wss.on('connection', (ws, req) => {
       }
       if (!sent) {
         for (const client of clients) {
-          if (client !== ws && (client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount === 0) {
+          if (client !== ws && (client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount < 64 * 1024) {
             client.send(message);
             sent = true;
           }

@@ -33,6 +33,7 @@ import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URL;
@@ -67,12 +68,9 @@ public class ScreenCaptureService extends Service {
     private long mLastFrameTime = 0;
     private boolean mIsRunning = false;
 
-    // Zero-GC Preallocated Bitmaps
-    private Bitmap mReusableRawBitmap = null;
+    // Zero-GC Preallocated Bitmaps & Direct Pixel Buffers
     private Bitmap mReusableCleanBitmap = null;
-    private Canvas mReusableCanvas = null;
-    private final Rect mSrcRect = new Rect();
-    private final Rect mDstRect = new Rect();
+    private ByteBuffer mContiguousPixelBuffer = null;
 
     // Persistent WebSocket Streamer for Sub-10ms Latency
     private WebSocketStreamer mWsStreamer = null;
@@ -205,7 +203,7 @@ public class ScreenCaptureService extends Service {
 
         final int finalW = targetWidth;
         final int finalH = targetHeight;
-        final int density = metrics.densityDpi;
+        final int density = Math.max(120, (int) (metrics.densityDpi * ((float) finalW / width)));
 
         mImageReader = ImageReader.newInstance(finalW, finalH, PixelFormat.RGBA_8888, 2);
         mVirtualDisplay = mMediaProjection.createVirtualDisplay(
@@ -239,35 +237,36 @@ public class ScreenCaptureService extends Service {
                 int rowStride = planes[0].getRowStride();
                 int rowPadding = rowStride - pixelStride * finalW;
 
-                Bitmap cleanBitmap;
+                if (mReusableCleanBitmap == null || mReusableCleanBitmap.getWidth() != finalW || mReusableCleanBitmap.getHeight() != finalH) {
+                    if (mReusableCleanBitmap != null) mReusableCleanBitmap.recycle();
+                    mReusableCleanBitmap = Bitmap.createBitmap(finalW, finalH, Bitmap.Config.ARGB_8888);
+                }
+
+                int rowBytes = finalW * pixelStride;
+                int totalBytes = rowBytes * finalH;
+
+                if (mContiguousPixelBuffer == null || mContiguousPixelBuffer.capacity() != totalBytes) {
+                    mContiguousPixelBuffer = ByteBuffer.allocateDirect(totalBytes);
+                }
+                mContiguousPixelBuffer.clear();
+
                 if (rowPadding == 0) {
-                    // Fast path: Direct copy into reusable bitmap (Zero allocation)
-                    if (mReusableCleanBitmap == null || mReusableCleanBitmap.getWidth() != finalW || mReusableCleanBitmap.getHeight() != finalH) {
-                        if (mReusableCleanBitmap != null) mReusableCleanBitmap.recycle();
-                        mReusableCleanBitmap = Bitmap.createBitmap(finalW, finalH, Bitmap.Config.ARGB_8888);
-                    }
+                    buffer.rewind();
                     mReusableCleanBitmap.copyPixelsFromBuffer(buffer);
-                    cleanBitmap = mReusableCleanBitmap;
                 } else {
-                    // Padded path: Copy raw then crop into clean bitmap with reusable canvas
-                    int rawW = finalW + rowPadding / pixelStride;
-                    if (mReusableRawBitmap == null || mReusableRawBitmap.getWidth() != rawW || mReusableRawBitmap.getHeight() != finalH) {
-                        if (mReusableRawBitmap != null) mReusableRawBitmap.recycle();
-                        if (mReusableCleanBitmap != null) mReusableCleanBitmap.recycle();
-                        mReusableRawBitmap = Bitmap.createBitmap(rawW, finalH, Bitmap.Config.ARGB_8888);
-                        mReusableCleanBitmap = Bitmap.createBitmap(finalW, finalH, Bitmap.Config.ARGB_8888);
-                        mReusableCanvas = new Canvas(mReusableCleanBitmap);
-                        mSrcRect.set(0, 0, finalW, finalH);
-                        mDstRect.set(0, 0, finalW, finalH);
+                    for (int y = 0; y < finalH; y++) {
+                        int rowStart = y * rowStride;
+                        buffer.position(rowStart);
+                        buffer.limit(rowStart + rowBytes);
+                        mContiguousPixelBuffer.put(buffer);
                     }
-                    mReusableRawBitmap.copyPixelsFromBuffer(buffer);
-                    mReusableCanvas.drawBitmap(mReusableRawBitmap, mSrcRect, mDstRect, null);
-                    cleanBitmap = mReusableCleanBitmap;
+                    mContiguousPixelBuffer.flip();
+                    mReusableCleanBitmap.copyPixelsFromBuffer(mContiguousPixelBuffer);
                 }
 
                 mBaos.reset();
-                // Quality 32 produces clean, sharp text while keeping frame payload under 8-10 KB
-                cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 32, mBaos);
+                // Quality 35 produces clear, crisp text while keeping frames under 10-14 KB
+                mReusableCleanBitmap.compress(Bitmap.CompressFormat.JPEG, 35, mBaos);
                 byte[] jpegBytes = mBaos.toByteArray();
 
                 sendFrameToPc(jpegBytes);
@@ -309,8 +308,8 @@ public class ScreenCaptureService extends Service {
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
-            conn.setConnectTimeout(1000);
-            conn.setReadTimeout(1000);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
             conn.setRequestProperty("Content-Type", "image/jpeg");
             conn.setRequestProperty("Connection", "keep-alive");
             conn.setRequestProperty("X-Room-Id", (mRoomId != null) ? mRoomId : "");
@@ -334,6 +333,13 @@ public class ScreenCaptureService extends Service {
     private synchronized void stopCapture() {
         if (!mIsRunning) return;
         mIsRunning = false;
+        try {
+            stopForeground(true);
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(NOTIFICATION_ID);
+            }
+        } catch (Exception ignored) {}
         if (mVirtualDisplay != null) {
             try { mVirtualDisplay.release(); } catch (Exception ignored) {}
             mVirtualDisplay = null;
@@ -352,15 +358,11 @@ public class ScreenCaptureService extends Service {
             mWsStreamer = null;
         }
 
-        if (mReusableRawBitmap != null) {
-            try { mReusableRawBitmap.recycle(); } catch (Exception ignored) {}
-            mReusableRawBitmap = null;
-        }
         if (mReusableCleanBitmap != null) {
             try { mReusableCleanBitmap.recycle(); } catch (Exception ignored) {}
             mReusableCleanBitmap = null;
         }
-        mReusableCanvas = null;
+        mContiguousPixelBuffer = null;
 
         if (mServerUrl != null && mRoomId != null) {
             mNetworkExecutor.execute(() -> {
@@ -436,18 +438,21 @@ public class ScreenCaptureService extends Service {
                 }
 
                 if (isSsl) {
-                    javax.net.ssl.SSLSocket sslSocket = (javax.net.ssl.SSLSocket) SSLSocketFactory.getDefault().createSocket(host, port);
+                    javax.net.ssl.SSLSocket sslSocket = (javax.net.ssl.SSLSocket) SSLSocketFactory.getDefault().createSocket();
                     try {
                         java.lang.reflect.Method setHostname = sslSocket.getClass().getMethod("setHostname", String.class);
                         setHostname.invoke(sslSocket, host);
                     } catch (Exception ignored) {}
+                    sslSocket.connect(new InetSocketAddress(host, port), 3500);
+                    sslSocket.startHandshake();
                     mSocket = sslSocket;
                 } else {
-                    mSocket = new Socket(host, port);
+                    mSocket = new Socket();
+                    mSocket.connect(new InetSocketAddress(host, port), 3500);
                 }
                 // Instant delivery without Nagle packet aggregation
                 mSocket.setTcpNoDelay(true);
-                mSocket.setSoTimeout(1200);
+                mSocket.setSoTimeout(3500);
 
                 mOut = new BufferedOutputStream(mSocket.getOutputStream(), 64 * 1024);
                 mIn = mSocket.getInputStream();

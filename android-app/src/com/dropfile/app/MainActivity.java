@@ -163,7 +163,8 @@ public class MainActivity extends Activity {
             public void startScreenCapture(String roomId, String serverUrl) {
                 runOnUiThread(() -> {
                     mCurrentCaptureRoomId = roomId;
-                    mCurrentCaptureServerUrl = serverUrl;
+                    String target = (serverUrl != null && (serverUrl.startsWith("http://") || serverUrl.startsWith("https://"))) ? serverUrl : getCleanUrl();
+                    mCurrentCaptureServerUrl = target;
                     MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
                     if (mpm != null) {
                         startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);
@@ -212,7 +213,8 @@ public class MainActivity extends Activity {
             public void startScreenCapture(String roomId, String serverUrl) {
                 runOnUiThread(() -> {
                     mCurrentCaptureRoomId = roomId;
-                    mCurrentCaptureServerUrl = serverUrl;
+                    String target = (serverUrl != null && (serverUrl.startsWith("http://") || serverUrl.startsWith("https://"))) ? serverUrl : getCleanUrl();
+                    mCurrentCaptureServerUrl = target;
                     MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
                     if (mpm != null) {
                         startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);

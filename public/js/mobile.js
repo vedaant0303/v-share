@@ -742,9 +742,14 @@ function initMobileApp() {
     // 1. Check if running inside V-Share Android native app
     const bridge = window.AndroidHost || window.AndroidBridge;
     if (bridge && typeof bridge.startScreenCapture === 'function') {
-      const serverUrl = detectedLocalPcUrl || window.location.origin;
-      showToast(detectedLocalPcUrl ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
-      bridge.startScreenCapture(currentRoomId, serverUrl);
+      try {
+        const serverUrl = detectedLocalPcUrl || window.location.origin;
+        showToast(detectedLocalPcUrl ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
+        bridge.startScreenCapture(currentRoomId, serverUrl);
+      } catch (err) {
+        console.error('Error invoking native startScreenCapture:', err);
+        showToast('Screen capture request failed: ' + (err.message || 'Error'), '⚠️');
+      }
       return;
     }
 
@@ -1534,6 +1539,11 @@ function initMobileApp() {
   const iosGuideModal = document.getElementById('iosGuideModal');
   const closeIosGuideModal = document.getElementById('closeIosGuideModal');
   const btnGotItIos = document.getElementById('btnGotItIos');
+
+  const isAndroidNative = !!(window.AndroidHost || window.AndroidBridge);
+  if (isAndroidNative && androidPromoCard) {
+    androidPromoCard.style.display = 'none';
+  }
 
   if (isIOS) {
     if (androidPromoCard) androidPromoCard.style.display = 'none';
