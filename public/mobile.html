@@ -5,34 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>V-Share Mobile</title>
   <meta name="description" content="Quickly drop photos, videos, and files from your phone directly into your PC over local Wi-Fi.">
-  <meta name="theme-color" content="#0c1017">
+  <meta name="theme-color" content="#0b1325">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="V-Share">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
   <link rel="manifest" href="/manifest-mobile.json">
-  <link rel="stylesheet" href="/css/style.css?v=8">
+  <link rel="stylesheet" href="/css/style.css?v=30">
   <style>
     body {
-      background-color: #0c1017;
-      background-image: 
-        radial-gradient(circle at 100% 40%, rgba(37, 99, 235, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 0% 10%, rgba(56, 189, 248, 0.05) 0%, transparent 40%);
-      color: #f8fafc;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      min-height: 100vh;
-      padding-bottom: max(50px, calc(30px + env(safe-area-inset-bottom)));
+      padding-bottom: max(100px, calc(80px + env(safe-area-inset-bottom)));
+      overflow-x: hidden;
     }
 
     .mobile-container {
-      max-width: 520px;
+      max-width: 480px;
       margin: 0 auto;
       padding: max(16px, env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom));
       position: relative;
@@ -40,405 +34,137 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* Mobile Header */
-    .mobile-header {
+    /* Top Reference Header */
+    .top-status-bar {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
-      padding-bottom: 8px;
+      align-items: flex-start;
+      margin-bottom: 22px;
+      padding: 4px 4px 0;
     }
 
-    .mobile-brand {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      text-decoration: none;
-    }
-
-    .brand-icon-svg {
-      width: 26px;
-      height: 26px;
-      display: block;
-    }
-
-    .brand-title {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      color: #ffffff;
-    }
-
-    /* Status Pill */
-    .mobile-status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 5px 12px;
-      border-radius: 999px;
-      background: #141a24;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: #cbd5e1;
-      font-size: 12px;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
-    }
-
-    /* App Download Promo Banner */
-    .app-promo-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 13px 16px;
-      margin-bottom: 18px;
-      background: #151a24;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      text-decoration: none;
-      color: #f8fafc;
-      transition: all 0.2s ease;
-    }
-
-    .app-promo-card:hover, .app-promo-card:active {
-      background: #19212e;
-      border-color: rgba(255, 255, 255, 0.15);
-    }
-
-    .app-promo-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .app-promo-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: #0f141d;
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    .app-promo-info h4 {
-      font-size: 13.5px;
+    .top-status-left .date-tag {
+      font-size: 13px;
       font-weight: 600;
-      color: #ffffff;
+      color: #94a3b8;
+      letter-spacing: -0.01em;
       margin-bottom: 2px;
     }
 
-    .app-promo-info p {
-      font-size: 11.5px;
-      color: #94a3b8;
-    }
-
-    .btn-get-app {
-      background: var(--accent-blue, #2563eb);
+    .top-status-left .headline {
+      font-size: 26px;
+      font-weight: 800;
       color: #ffffff;
-      font-weight: 600;
-      font-size: 12px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      white-space: nowrap;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
     }
 
-    .btn-get-app:hover {
-      background: #1d4ed8;
+    .top-status-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    /* Primary Drop / Send Zone */
-    .mobile-drop-zone {
-      border: 1.5px dashed rgba(255, 255, 255, 0.12);
-      border-radius: 16px;
-      padding: 34px 20px;
+    /* Drop Zone inside Hero Card */
+    .hero-drop-area {
+      border: 2px dashed rgba(15, 23, 42, 0.16);
+      border-radius: 20px;
+      padding: 22px 16px;
       text-align: center;
-      background: rgba(255, 255, 255, 0.01);
+      background: rgba(15, 23, 42, 0.02);
       cursor: pointer;
-      transition: all 0.2s ease;
-      margin-bottom: 18px;
+      transition: var(--transition);
+      margin-top: 14px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
     }
 
-    .mobile-drop-zone:active, .mobile-drop-zone.dragover {
-      border-color: rgba(59, 130, 246, 0.5);
-      background: rgba(59, 130, 246, 0.04);
+    .hero-drop-area:active, .hero-drop-area.dragover {
+      border-color: var(--accent-blue);
+      background: rgba(37, 99, 235, 0.06);
       transform: scale(0.99);
     }
 
-    .drop-icon-svg {
-      color: #94a3b8;
-      opacity: 0.85;
-      margin-bottom: 2px;
+    .hero-drop-area .drop-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #0f172a;
     }
 
-    .mobile-drop-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #ffffff;
-    }
-
-    .mobile-drop-subtitle {
+    .hero-drop-area .drop-sub {
       font-size: 12px;
-      color: #94a3b8;
+      color: #64748b;
     }
 
-    .mobile-drop-subtitle b {
+    /* Device chip active state */
+    .device-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: var(--radius-pill);
+      background: rgba(18, 28, 46, 0.85);
+      border: 1px solid var(--border-subtle);
       color: #cbd5e1;
-      font-weight: 500;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
     }
 
-    /* Action Grid */
-    .mobile-action-grid {
+    .device-chip.active {
+      background: #ffffff;
+      color: #0f172a;
+      border-color: #ffffff;
+      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Action Grid within Section */
+    .mobile-actions-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
       margin-bottom: 20px;
     }
 
-    .mobile-action-btn {
-      background: #151a24;
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 12px;
-      padding: 16px 12px;
-      color: #f1f5f9;
-      font-size: 13px;
-      font-weight: 600;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .mobile-action-btn:active {
-      transform: scale(0.97);
-      background: #19202d;
-      border-color: rgba(255, 255, 255, 0.16);
-    }
-
-    .mobile-action-btn .btn-icon {
-      font-size: 22px;
-    }
-
-    /* Upload Progress Card */
-    .mobile-upload-card {
-      display: none;
-      background: #151a24;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      padding: 14px 16px;
-      margin-bottom: 18px;
-    }
-
-    .progress-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: #94a3b8;
-      margin-bottom: 8px;
-    }
-
-    .progress-bar-bg {
-      width: 100%;
-      height: 6px;
-      background: #0f141d;
-      border-radius: 999px;
-      overflow: hidden;
-    }
-
-    .progress-bar-fill {
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(90deg, #2563eb, #00f2fe);
-      border-radius: 999px;
-      transition: width 0.2s ease;
-    }
-
-    /* Text / Note Sync Section */
-    .text-sync-card {
-      background: #151a24;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 18px;
-    }
-
-    .text-sync-card textarea {
-      width: 100%;
-      background: #0f141d;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      padding: 10px 12px;
+    .mobile-action-pill-btn {
+      background: rgba(18, 28, 46, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 14px 12px;
       color: #f1f5f9;
       font-family: inherit;
-      font-size: 13px;
-      resize: vertical;
-      outline: none;
-      box-sizing: border-box;
-    }
-
-    .btn-send-text {
-      width: 100%;
-      margin-top: 10px;
-      padding: 9px;
-      background: #2563eb;
-      border: none;
-      border-radius: 8px;
-      color: #ffffff;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-send-text:hover {
-      background: #1d4ed8;
-    }
-
-    /* Transferred Section Card */
-    .transfer-history-card {
-      background: #151a24;
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 16px;
-      padding: 18px 20px;
-      box-sizing: border-box;
-    }
-
-    .transfer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .transfer-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #ffffff;
-    }
-
-    .transfer-count-badge {
-      background: #1c2331;
-      border-radius: 999px;
-      padding: 2px 8px;
-      font-size: 11px;
-      color: #94a3b8;
-    }
-
-    .transfer-queue-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      background: #0f141d;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      margin-bottom: 8px;
       font-size: 12.5px;
-    }
-
-    .transfer-queue-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .transfer-queue-name {
-      max-width: 200px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-weight: 500;
-      color: #f1f5f9;
-    }
-
-    .transfer-status-done {
-      color: #10b981;
-      font-weight: 600;
-      font-size: 11.5px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    /* Beam Modal */
-    .beam-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(12, 16, 23, 0.95);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-    }
-
-    .beam-modal.active {
+      font-weight: 700;
       display: flex;
-    }
-
-    .beam-modal-card {
-      background: #151a24;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 18px;
-      padding: 24px;
-      max-width: 360px;
-      width: 100%;
-      position: relative;
-    }
-
-    .beam-close-btn {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      background: none;
-      border: none;
-      color: #94a3b8;
-      font-size: 24px;
+      align-items: center;
+      gap: 9px;
       cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
     }
 
-    .beam-qr-container {
-      background: #ffffff;
-      border-radius: 12px;
-      padding: 10px;
-      margin: 16px auto;
-      width: 180px;
-      height: 180px;
+    .mobile-action-pill-btn:active {
+      transform: scale(0.97);
+      background: rgba(30, 45, 70, 0.95);
+      border-color: var(--border-hover);
+    }
+
+    .mobile-action-pill-btn .action-icon-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      font-size: 16px;
+      flex-shrink: 0;
     }
-
-    .beam-qr-container img {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-
   </style>
 </head>
 <body>
@@ -450,120 +176,92 @@
   </div>
 
   <div class="mobile-container">
-    <!-- Header -->
-    <header class="mobile-header">
-      <div class="mobile-brand">
-        <img src="/logo-icon.png" alt="V-Share" class="brand-icon-img" style="height: 48px; width: 48px; object-fit: contain; filter: drop-shadow(0 3px 12px rgba(0, 150, 255, 0.45));">
+    <!-- Top Reference Bar (Inspired by "Today, Wed, Aug 4" & Circular Gauge) -->
+    <header class="top-status-bar">
+      <div class="top-status-left">
+        <div class="date-tag">Today &bull; Fast Local Wi-Fi</div>
+        <div class="headline">V-Share Pro</div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 6px;">
+      <div class="top-status-right">
+        <!-- Circular Progress Ring (Inspired by "35% overall progress") -->
+        <div class="circular-gauge-wrap" title="Live Connection Quality">
+          <div class="circular-gauge">
+            <svg viewBox="0 0 36 36">
+              <path class="gauge-bg" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="gaugeFgPath" class="gauge-fg" stroke-width="3" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+            </svg>
+            <span id="circularGaugePercent" class="gauge-val">100%</span>
+          </div>
+        </div>
 
-
-        <button id="openMobileGuideBtn" type="button" style="background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 6px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+        <button id="openMobileGuideBtn" type="button" class="header-btn" style="padding: 7px 12px;">
           <span>📖</span>
           <span>Guide</span>
         </button>
 
-        <div id="mobileStatusPill" class="mobile-status-pill">
+        <div id="mobileStatusPill" class="status-pill" style="display: none;">
           <span class="status-dot"></span>
           <span id="mobileStatusText">Connected</span>
         </div>
       </div>
     </header>
 
-
-
-    <!-- Room / Pairing Banner -->
-    <div id="roomPairingBanner" style="background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-      <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
-        <span id="roomStatusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.7); flex-shrink: 0;"></span>
-        <div style="min-width: 0;">
-          <div id="roomStatusTitle" style="font-size: 13px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            Paired with Your PC
-          </div>
-          <div id="roomStatusSubtitle" style="font-size: 11.5px; color: #94a3b8;">
-            Pairing Code: <span id="mobileRoomCodeText" style="color: #60a5fa; font-weight: 700; font-family: monospace;">--- ---</span>
-          </div>
-        </div>
-      </div>
-      <div style="display: flex; gap: 6px; flex-shrink: 0;">
-        <button id="openScannerBtn" type="button" style="background: linear-gradient(135deg, #00f2fe 0%, #2563eb 100%); border: none; color: #07101e; font-size: 12px; font-weight: 800; padding: 7px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0, 242, 254, 0.3);">
-          <span>📷</span>
-          <span>Scan QR</span>
-        </button>
-        <button id="changeRoomBtn" type="button" title="Enter 6-digit Code manually" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1; font-size: 12px; font-weight: 600; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
-          ⌨️
-        </button>
-      </div>
-    </div>
-
-    <!-- Direct Android App Download Card -->
-    <a id="androidPromoCard" href="/V-Share.apk" download class="app-promo-card" title="Install Android Native App for Direct Share Menu">
-      <div class="app-promo-left">
-        <img src="/logo-icon.png" alt="V-Share" style="width: 36px; height: 36px; object-fit: contain;">
-        <div class="app-promo-info">
-          <h4>Install V-Share Android App</h4>
-          <p>Enables "Share to PC" from Drive, DocScan &amp; all apps</p>
-        </div>
-      </div>
-      <button class="btn-get-app" type="button">Get App</button>
-    </a>
-
-    <!-- Direct iOS / iPhone Add to Home Screen Banner -->
-    <div id="iosPromoCard" class="app-promo-card" style="display: none; cursor: pointer;" title="Add V-Share to iPhone Home Screen">
-      <div class="app-promo-left">
-        <img src="/icons/apple-touch-icon.png" alt="V-Share" style="width: 36px; height: 36px; object-fit: cover; border-radius: 8px;">
-        <div class="app-promo-info">
-          <h4>Add V-Share to iPhone</h4>
-          <p>Tap Share ⎙ &rarr; <b>Add to Home Screen</b> for app mode</p>
-        </div>
-      </div>
-      <button class="btn-get-app" id="btnIosPromoAction" type="button">Guide</button>
-    </div>
-
-    <!-- Target Destination PC Selector Bar -->
-    <div id="deviceSelectorSection" class="device-selector-section" style="margin-bottom: 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <span style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; display: flex; align-items: center; gap: 5px;">
-          <span>🎯</span> Send Destination:
-        </span>
-        <button id="addNewPcBtn" type="button" style="background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(37, 99, 235, 0.35); color: #60a5fa; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer;">
-          + Add Another PC
-        </button>
-      </div>
-
-      <!-- Horizontal Scrollable Device Chips -->
-      <div id="deviceChipsList" style="display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none;">
-        <!-- Injected dynamically by mobile.js -->
-      </div>
-    </div>
-
     <!-- Active Mobile Screen Sharing Banner -->
-    <div id="phoneCastingBanner" style="display: none; background: linear-gradient(90deg, rgba(239, 68, 68, 0.2), rgba(168, 85, 247, 0.2)); border: 1px solid rgba(239, 68, 68, 0.55); border-radius: 14px; padding: 12px 16px; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);">
+    <div id="phoneCastingBanner" style="display: none; background: linear-gradient(90deg, rgba(239, 68, 68, 0.25), rgba(168, 85, 247, 0.25)); border: 1px solid rgba(239, 68, 68, 0.6); border-radius: 20px; padding: 14px 18px; margin-bottom: 18px; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 4px 24px rgba(239, 68, 68, 0.25);">
       <div style="display: flex; align-items: center; gap: 10px;">
         <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 10px #ef4444;"></span>
         <div>
-          <div style="font-size: 13px; font-weight: 700; color: #fca5a5;">🔴 Casting Screen to PC</div>
-          <div style="font-size: 11px; color: #cbd5e1;">Live screen streaming active</div>
+          <div style="font-size: 13.5px; font-weight: 800; color: #fca5a5;">🔴 Screen Casting to PC</div>
+          <div style="font-size: 11.5px; color: #cbd5e1;">Hardware stream active</div>
         </div>
       </div>
-      <button id="stopPhoneScreenShareBtn" type="button" style="background: rgba(239, 68, 68, 0.35); border: 1px solid rgba(239, 68, 68, 0.7); color: #fff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 8px; cursor: pointer;">
-        Stop Sharing
+      <button id="stopPhoneScreenShareBtn" type="button" style="background: #ef4444; border: none; color: #fff; font-size: 12px; font-weight: 800; padding: 7px 16px; border-radius: 9999px; cursor: pointer;">
+        Stop
       </button>
     </div>
 
-    <!-- Primary Drop / Tap Area -->
-    <div id="mobileDropCard" class="mobile-drop-zone">
-      <svg class="drop-icon-svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="17 8 12 3 7 8"></polyline>
-        <line x1="12" y1="3" x2="12" y2="15"></line>
-      </svg>
-      <div class="mobile-drop-title">Drop Any File to PC</div>
-      <div id="mobileDropSubtitle" class="mobile-drop-subtitle">
-        Saves straight to your PC's folder
+    <!-- =====================================================================
+         SIGNATURE HERO FLOATING CARD (Direct Reference Mockup Inspiration)
+         ===================================================================== -->
+    <section class="hero-card">
+      <div class="hero-eyebrow">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span id="roomStatusDot" class="status-dot"></span>
+          <span id="roomStatusTitle">Target PC &bull; Living Room</span>
+        </div>
+        <div id="mobileRoomCodeText" style="font-family: monospace; font-size: 12px; color: #2563eb; background: rgba(37, 99, 235, 0.1); padding: 2px 8px; border-radius: 9999px;">
+          --- ---
+        </div>
       </div>
-    </div>
+
+      <h1 class="hero-title">Instant Screen Cast &amp; File Drop</h1>
+      <p id="roomStatusSubtitle" class="hero-desc">
+        Stream your phone screen live with low latency or drop photos, documents, and videos directly into your PC folder.
+      </p>
+
+      <!-- Signature Obsidian Pill Button (Inspired by "Start task 2 hours") -->
+      <button id="sharePhoneScreenBtn" type="button" class="btn-obsidian-pill" style="margin-bottom: 12px;">
+        <div class="pill-left">
+          <span class="pill-badge-icon">📱</span>
+          <span>Share Phone Screen to PC</span>
+        </div>
+        <span class="pill-tag">14 FPS &bull; Realtime</span>
+      </button>
+
+      <!-- Primary Drop Zone Inside Hero Card -->
+      <div id="mobileDropCard" class="hero-drop-area">
+        <svg class="drop-icon-svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <div class="drop-title">Tap to Drop Files to PC</div>
+        <div id="mobileDropSubtitle" class="drop-sub">
+          Direct Wi-Fi transfer straight into your PC Downloads
+        </div>
+      </div>
+    </section>
 
     <!-- Hidden Input Pickers (iOS & Android Compatible) -->
     <input type="file" id="generalFilePicker" multiple style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;">
@@ -571,28 +269,43 @@
     <input type="file" id="mediaPicker" accept="image/*,video/*" multiple style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;">
     <input type="file" id="beamFilePicker" style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;">
 
-    <!-- Action Buttons Grid -->
-    <div class="mobile-action-grid">
-      <button id="sharePhoneScreenBtn" class="mobile-action-btn" style="grid-column: span 2; background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(59, 130, 246, 0.18)); border: 1px solid rgba(168, 85, 247, 0.5); flex-direction: row; justify-content: center; gap: 10px; padding: 13px 16px;">
-        <span class="btn-icon" style="font-size: 20px;">📱</span>
-        <span style="font-size: 13.5px; font-weight: 700; color: #e9d5ff;">Share Phone Screen to PC</span>
-      </button>
-      <button id="beamDocBtn" class="mobile-action-btn">
-        <span class="btn-icon">📷</span>
-        <span>Tap to PC Camera</span>
-      </button>
-      <button id="galleryBtn" class="mobile-action-btn">
-        <span class="btn-icon">🖼️</span>
-        <span>Photos & Videos</span>
-      </button>
-      <button id="docsBtn" class="mobile-action-btn">
-        <span class="btn-icon">📁</span>
-        <span>Browse Files</span>
-      </button>
-      <button id="syncTabBtn" class="mobile-action-btn">
-        <span class="btn-icon">💬</span>
-        <span>Send Note / Link</span>
-      </button>
+    <!-- =====================================================================
+         SEGMENTED HORIZONTAL PILL STRIP (Weekday Bar Inspiration)
+         ===================================================================== -->
+    <div style="margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8;">
+          Transfer Modes
+        </span>
+        <span style="font-size: 11px; color: #64748b;">Tap any mode</span>
+      </div>
+
+      <div class="segmented-pill-strip">
+        <div id="stripDropBtn" class="segmented-pill-item active" onclick="document.getElementById('generalFilePicker').click();">
+          <span class="pill-top">Quick</span>
+          <span class="pill-main">⚡ Drop</span>
+        </div>
+        <div id="stripCastBtn" class="segmented-pill-item" onclick="document.getElementById('sharePhoneScreenBtn').click();">
+          <span class="pill-top">Display</span>
+          <span class="pill-main">📱 Cast</span>
+        </div>
+        <div id="stripPhotosBtn" class="segmented-pill-item" onclick="document.getElementById('mediaPicker').click();">
+          <span class="pill-top">Camera</span>
+          <span class="pill-main">🖼️ Photos</span>
+        </div>
+        <div id="stripDocsBtn" class="segmented-pill-item" onclick="document.getElementById('generalFilePicker').click();">
+          <span class="pill-top">Storage</span>
+          <span class="pill-main">📁 Files</span>
+        </div>
+        <div id="stripBeamBtn" class="segmented-pill-item" onclick="document.getElementById('beamDocBtn').click();">
+          <span class="pill-top">Lens</span>
+          <span class="pill-main">📷 Beam</span>
+        </div>
+        <div id="stripNotesBtn" class="segmented-pill-item" onclick="document.getElementById('syncTabBtn').click();">
+          <span class="pill-top">Sync</span>
+          <span class="pill-main">💬 Notes</span>
+        </div>
+      </div>
     </div>
 
     <!-- Active Upload Progress Card -->
@@ -609,28 +322,95 @@
       </div>
     </div>
 
+    <!-- Target Destination PC Selector Bar -->
+    <div id="deviceSelectorSection" class="frosted-dark-card" style="padding: 16px 18px; margin-bottom: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+          <span>🎯</span> Target PC:
+        </span>
+        <button id="addNewPcBtn" type="button" class="header-btn" style="padding: 4px 10px; font-size: 11px;">
+          + Add PC
+        </button>
+      </div>
+
+      <!-- Horizontal Scrollable Device Chips -->
+      <div id="deviceChipsList" style="display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none;">
+        <!-- Injected dynamically by mobile.js -->
+      </div>
+    </div>
+
+    <!-- Secondary Action Grid -->
+    <div class="mobile-actions-grid">
+      <button id="galleryBtn" class="mobile-action-pill-btn">
+        <span class="action-icon-circle">🖼️</span>
+        <span>Photos &amp; Videos</span>
+      </button>
+      <button id="docsBtn" class="mobile-action-pill-btn">
+        <span class="action-icon-circle">📁</span>
+        <span>Browse Files</span>
+      </button>
+      <button id="beamDocBtn" class="mobile-action-pill-btn">
+        <span class="action-icon-circle">📷</span>
+        <span>Tap to PC Camera</span>
+      </button>
+      <button id="syncTabBtn" class="mobile-action-pill-btn">
+        <span class="action-icon-circle">💬</span>
+        <span>Send Note / Link</span>
+      </button>
+    </div>
+
+    <!-- Hidden helper button for pairing backward compatibility -->
+    <div id="roomPairingBanner" style="display: none;">
+      <button id="openScannerBtn" type="button"></button>
+      <button id="changeRoomBtn" type="button"></button>
+    </div>
+
+    <!-- Direct Android App Download Card -->
+    <a id="androidPromoCard" href="/V-Share.apk" download class="frosted-dark-card" style="display: flex; align-items: center; justify-content: space-between; text-decoration: none; padding: 16px 18px; margin-bottom: 18px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="/logo-icon.png" alt="V-Share" style="width: 36px; height: 36px; object-fit: contain;">
+        <div>
+          <div style="font-size: 13.5px; font-weight: 700; color: #ffffff; margin-bottom: 2px;">V-Share Native Android APK</div>
+          <div style="font-size: 11.5px; color: #94a3b8;">Direct "Share to PC" from Drive, Photos &amp; all apps</div>
+        </div>
+      </div>
+      <span class="header-btn" style="padding: 6px 14px; font-size: 12px; background: var(--accent-blue); color: #fff; border: none;">Get App</span>
+    </a>
+
+    <!-- Direct iOS / iPhone Add to Home Screen Banner -->
+    <div id="iosPromoCard" class="frosted-dark-card" style="display: none; cursor: pointer; align-items: center; justify-content: space-between; padding: 16px 18px; margin-bottom: 18px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="/icons/apple-touch-icon.png" alt="V-Share" style="width: 36px; height: 36px; object-fit: cover; border-radius: 8px;">
+        <div>
+          <div style="font-size: 13.5px; font-weight: 700; color: #ffffff; margin-bottom: 2px;">Add V-Share to iPhone</div>
+          <div style="font-size: 11.5px; color: #94a3b8;">Tap Share ⎙ &rarr; Add to Home Screen</div>
+        </div>
+      </div>
+      <button class="header-btn" id="btnIosPromoAction" type="button" style="padding: 6px 14px; font-size: 12px;">Guide</button>
+    </div>
+
     <!-- Quick Text / Link Transfer -->
-    <div id="textSyncSection" class="text-sync-card" style="display: none;">
-      <h3 style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 10px;">Send Text / Link to PC</h3>
-      <textarea id="mobileTextInput" rows="3" placeholder="Type or paste link/text here..."></textarea>
-      <button id="mobileSendTextBtn" class="btn-send-text">
+    <div id="textSyncSection" class="frosted-dark-card" style="display: none; margin-bottom: 18px;">
+      <h3 style="font-size: 14.5px; font-weight: 700; color: #ffffff; margin-bottom: 10px;">Send Text / Link to PC</h3>
+      <textarea id="mobileTextInput" rows="3" placeholder="Type or paste link/text here..." style="width: 100%; background: #0b101c; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px; color: #f1f5f9; font-family: inherit; font-size: 13px; resize: vertical; outline: none; box-sizing: border-box;"></textarea>
+      <button id="mobileSendTextBtn" class="btn-obsidian-pill" style="margin-top: 10px; justify-content: center; background: var(--accent-blue);">
         Send to PC Clipboard
       </button>
     </div>
 
     <!-- Received from PC Section -->
-    <div class="transfer-history-card" style="margin-bottom: 18px;">
-      <div class="transfer-header">
+    <div class="frosted-dark-card" style="margin-bottom: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 16px;">📥</span>
-          <h3 class="transfer-title">Received from PC</h3>
+          <span style="font-size: 17px;">📥</span>
+          <h3 style="font-size: 15px; font-weight: 800; color: #ffffff;">Received from PC</h3>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; cursor: pointer;">
+          <label style="display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #94a3b8; cursor: pointer;">
             <input type="checkbox" id="autoDownloadToggle" checked style="accent-color: #2563eb; width: 14px; height: 14px;">
             Auto-Save
           </label>
-          <span id="receivedFromPcCount" class="transfer-count-badge">0 files</span>
+          <span id="receivedFromPcCount" class="count-badge">0 files</span>
         </div>
       </div>
       <div id="receivedFromPcList">
@@ -641,16 +421,16 @@
     </div>
 
     <!-- Browse All PC Files Accordion -->
-    <div class="transfer-history-card" style="margin-bottom: 18px;">
-      <div class="transfer-header" id="togglePcFilesBtn" style="cursor: pointer;">
+    <div class="frosted-dark-card" style="margin-bottom: 18px;">
+      <div id="togglePcFilesBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 16px;">💻</span>
-          <h3 class="transfer-title">Browse All PC Files</h3>
-          <span id="pcFilesCountBadge" class="transfer-count-badge">Loading...</span>
+          <span style="font-size: 17px;">💻</span>
+          <h3 style="font-size: 15px; font-weight: 800; color: #ffffff;">Browse All PC Files</h3>
+          <span id="pcFilesCountBadge" class="count-badge">Loading...</span>
         </div>
-        <span id="pcFilesArrow" style="color: #60a5fa; font-size: 12px; font-weight: 500;">▼ Tap to View</span>
+        <span id="pcFilesArrow" style="color: #38bdf8; font-size: 12px; font-weight: 600;">▼ Tap to View</span>
       </div>
-      <div id="allPcFilesContainer" style="display: none; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+      <div id="allPcFilesContainer" style="display: none; margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 14px;">
         <div id="allPcFilesList" style="display: flex; flex-direction: column; gap: 8px;">
           <div style="text-align: center; color: #64748b; font-size: 12px; padding: 12px 0;">Loading PC files...</div>
         </div>
@@ -658,17 +438,35 @@
     </div>
 
     <!-- Transferred to PC Section -->
-    <div class="transfer-history-card">
-      <div class="transfer-header">
-        <h3 class="transfer-title">Transferred to PC</h3>
-        <span id="transferCount" class="transfer-count-badge">0 items</span>
+    <div class="frosted-dark-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 15px; font-weight: 800; color: #ffffff;">Transferred to PC</h3>
+        <span id="transferCount" class="count-badge">0 items</span>
       </div>
       <div id="transferList">
-        <div style="text-align: center; color: #64748b; font-size: 12.5px; padding: 18px 0;">
+        <div style="text-align: center; color: #64748b; font-size: 12.5px; padding: 16px 0;">
           No files dropped yet in this session
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- =====================================================================
+       FLOATING BOTTOM PILL DOCK ("I want to become..." Inspiration)
+       ===================================================================== -->
+  <div class="floating-bottom-dock">
+    <button type="button" class="dock-pill-btn primary" onclick="document.getElementById('generalFilePicker').click();">
+      <span>⚡</span>
+      <span>Drop File</span>
+    </button>
+    <button type="button" class="dock-pill-btn" onclick="document.getElementById('sharePhoneScreenBtn').click();">
+      <span>📱</span>
+      <span>Cast Screen</span>
+    </button>
+    <button type="button" class="dock-pill-btn" onclick="document.getElementById('pairModal').classList.add('active'); document.getElementById('startScanFromModalBtn').click();">
+      <span>📷</span>
+      <span>Scan QR</span>
+    </button>
   </div>
 
   <!-- Incoming File From PC Modal -->
@@ -676,18 +474,17 @@
     <div class="beam-modal-card">
       <button id="closeIncomingModal" class="beam-close-btn">&times;</button>
       <div style="font-size: 36px; margin-bottom: 6px;">💻 ➡️ 📱</div>
-      <h3 style="font-size: 17px; font-weight: 700; color: #ffffff;">File Received from PC!</h3>
-      <div id="incomingFileName" style="font-weight: 600; color: #38bdf8; font-size: 14px; margin-top: 8px; word-break: break-all;">
+      <h3 style="font-size: 17px; font-weight: 800; color: #ffffff;">File Received from PC!</h3>
+      <div id="incomingFileName" style="font-weight: 700; color: #38bdf8; font-size: 14px; margin-top: 8px; word-break: break-all;">
         Document.pdf
       </div>
       <div id="incomingFileSize" style="font-size: 12px; color: #94a3b8; margin-top: 4px;">824.3 KB</div>
       
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 20px;">
-        <a id="incomingDownloadBtn" class="btn-send-text" style="text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 0;" download>
-          <span>⬇️</span>
-          <span>Save File</span>
+        <a id="incomingDownloadBtn" class="btn-obsidian-pill" style="justify-content: center; background: var(--accent-blue);" download>
+          <span>⬇️ Save</span>
         </a>
-        <a id="incomingPreviewBtn" class="mobile-action-btn" style="text-decoration: none; text-align: center; padding: 10px; font-size: 12.5px; justify-content: center;" target="_blank">
+        <a id="incomingPreviewBtn" class="header-btn" style="justify-content: center; padding: 12px;" target="_blank">
           <span>👁️ Preview</span>
         </a>
       </div>
@@ -699,40 +496,40 @@
     <div class="beam-modal-card">
       <button id="closeBeamModal" class="beam-close-btn">&times;</button>
       <div style="font-size: 32px; margin-bottom: 6px;">📷 ➡️ 💻</div>
-      <h3 style="font-size: 17px; font-weight: 700; color: #ffffff;">Tap to PC Camera</h3>
+      <h3 style="font-size: 17px; font-weight: 800; color: #ffffff;">Tap to PC Camera</h3>
       <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
         Hold this phone screen facing your PC camera:
       </p>
-      <div id="beamFileName" style="font-weight: 600; color: #38bdf8; font-size: 13.5px; margin-top: 6px; word-break: break-all;">
+      <div id="beamFileName" style="font-weight: 700; color: #38bdf8; font-size: 13.5px; margin-top: 6px; word-break: break-all;">
         document.pdf
       </div>
 
       <!-- Dynamic Beam QR Code for PC Camera Scanning -->
-      <div class="beam-qr-container">
-        <img id="beamQrImage" src="" alt="Beam QR Code" />
+      <div class="qr-wrapper" style="width: 180px; height: 180px; margin: 16px auto;">
+        <img id="beamQrImage" src="" alt="Beam QR Code" style="width: 100%; height: 100%; object-fit: contain;" />
       </div>
 
-      <button id="beamInstantSendBtn" class="btn-send-text" style="margin-top: 6px;">
-        ⚡ Or Tap to Beam Instantly
+      <button id="beamInstantSendBtn" class="btn-obsidian-pill" style="justify-content: center; background: var(--accent-blue);">
+        ⚡ Tap to Beam Instantly
       </button>
     </div>
   </div>
 
   <!-- Media Preview Modal for Mobile -->
   <div id="previewModal" class="modal-overlay">
-    <div class="modal-content" style="max-width: 440px; width: 92%; margin: 0 auto; background: #141923; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;">
-      <div class="modal-header" style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+    <div class="modal-content" style="max-width: 440px; width: 92%; margin: 0 auto; background: #0f172a; border: 1px solid rgba(255,255,255,0.14); border-radius: 28px;">
+      <div class="modal-header" style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08);">
         <h3 id="modalFilename" class="modal-title" style="font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; color: #fff;">File Preview</h3>
-        <button id="modalCloseBtn" class="modal-close" style="color: #94a3b8; font-size: 20px; background: none; border: none; cursor: pointer;">&times;</button>
+        <button id="modalCloseBtn" class="modal-close">&times;</button>
       </div>
-      <div id="modalBody" class="modal-body" style="min-height: 200px; padding: 16px; display: flex; align-items: center; justify-content: center; background: #090c12;">
+      <div id="modalBody" class="modal-body" style="min-height: 200px; padding: 16px; display: flex; align-items: center; justify-content: center; background: #070b14;">
         <!-- Dynamic content: image, video, audio, or doc info -->
       </div>
-      <div class="modal-footer" style="padding: 12px 16px; gap: 8px; border-top: 1px solid rgba(255,255,255,0.08); display: flex;">
-        <button id="modalOpenInAppBtn" class="mobile-action-btn" style="flex: 1; padding: 9px; font-size: 12px; margin: 0; justify-content: center;">
+      <div class="modal-footer" style="padding: 14px 18px; gap: 8px; border-top: 1px solid rgba(255,255,255,0.08); display: flex;">
+        <button id="modalOpenInAppBtn" class="header-btn" style="flex: 1; justify-content: center; padding: 10px;">
           🚀 Open in App
         </button>
-        <button id="modalDownloadBtn" class="btn-send-text" style="flex: 1; padding: 9px; font-size: 12px; margin: 0; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px;">
+        <button id="modalDownloadBtn" class="btn-obsidian-pill" style="flex: 1; justify-content: center; background: var(--accent-blue); padding: 10px;">
           ⬇️ Save File
         </button>
       </div>
@@ -740,18 +537,18 @@
   </div>
 
   <!-- iOS Add to Home Screen Guide Modal -->
-  <div id="iosGuideModal" class="incoming-modal-backdrop">
-    <div class="incoming-modal-card" style="text-align: left; max-width: 380px;">
+  <div id="iosGuideModal" class="beam-modal">
+    <div class="beam-modal-card" style="text-align: left; max-width: 380px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <img src="/icons/apple-touch-icon.png" alt="V-Share" style="width: 28px; height: 28px; border-radius: 7px;">
-          <h3 style="font-size: 16px; font-weight: 700; color: #ffffff;">V-Share on iPhone</h3>
+          <h3 style="font-size: 16px; font-weight: 800; color: #ffffff;">V-Share on iPhone</h3>
         </div>
-        <button id="closeIosGuideModal" style="background:none; border:none; color:#94a3b8; font-size:22px; cursor:pointer;">&times;</button>
+        <button id="closeIosGuideModal" class="beam-close-btn">&times;</button>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: #cbd5e1; line-height: 1.45;">
-        <div style="display: flex; gap: 12px; align-items: flex-start; background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 10px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start; background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 12px;">
           <span style="font-size: 20px;">1️⃣</span>
           <div>
             <b>Open in Safari:</b><br>
@@ -759,7 +556,7 @@
           </div>
         </div>
 
-        <div style="display: flex; gap: 12px; align-items: flex-start; background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 10px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start; background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 12px;">
           <span style="font-size: 20px;">2️⃣</span>
           <div>
             <b>Tap Share Icon:</b><br>
@@ -767,7 +564,7 @@
           </div>
         </div>
 
-        <div style="display: flex; gap: 12px; align-items: flex-start; background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 10px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start; background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 12px;">
           <span style="font-size: 20px;">3️⃣</span>
           <div>
             <b>Add to Home Screen:</b><br>
@@ -776,11 +573,11 @@
         </div>
       </div>
 
-      <div style="margin-top: 14px; padding: 10px; background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 10px; font-size: 12px; color: #93c5fd;">
+      <div style="margin-top: 14px; padding: 12px; background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 12px; font-size: 12px; color: #93c5fd;">
         💡 <b>Result:</b> V-Share sits directly on your iPhone home screen with its app icon, full-screen view, and zero browser bars!
       </div>
 
-      <button id="btnGotItIos" style="width: 100%; margin-top: 14px; padding: 10px; background: #2563eb; color: #fff; border: none; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer;">
+      <button id="btnGotItIos" class="btn-obsidian-pill" style="margin-top: 14px; justify-content: center; background: var(--accent-blue);">
         Got It!
       </button>
     </div>
@@ -788,53 +585,52 @@
 
   <!-- Pair PC Code & Live QR Scanner Modal -->
   <div id="pairModal" class="beam-modal">
-    <div class="beam-modal-card" style="max-width: 360px; text-align: center; max-height: 90vh; overflow-y: auto;">
+    <div class="beam-modal-card" style="max-width: 380px; text-align: center; max-height: 90vh; overflow-y: auto;">
       <button id="closePairModalBtn" class="beam-close-btn">&times;</button>
       <div style="font-size: 32px; margin-bottom: 6px;">💻 🔗 📱</div>
-      <h3 style="font-size: 17px; font-weight: 700; margin-bottom: 4px; color: #fff;">Connect to Your PC</h3>
-      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 14px;">
+      <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 4px; color: #fff;">Connect to Your PC</h3>
+      <p style="font-size: 12.5px; color: #94a3b8; margin-bottom: 16px;">
         Scan the QR code on your PC screen or enter the 6-digit code.
       </p>
 
       <!-- Live Camera QR Scanner Box -->
       <div id="mobileScannerContainer" style="display: none; margin-bottom: 16px;">
-        <div style="position: relative; width: 100%; aspect-ratio: 1; max-width: 260px; margin: 0 auto; border-radius: 16px; overflow: hidden; background: #000; border: 2px solid #00f2fe; box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);">
+        <div style="position: relative; width: 100%; aspect-ratio: 1; max-width: 260px; margin: 0 auto; border-radius: 24px; overflow: hidden; background: #000; border: 2px solid #38bdf8; box-shadow: 0 0 24px rgba(56, 189, 248, 0.3);">
           <video id="mobileScannerVideo" playsinline webkit-playsinline autoplay muted style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"></video>
           <canvas id="mobileScannerCanvas" style="display: none;"></canvas>
-          <div style="position: absolute; inset: 20px; border: 2px dashed rgba(0, 242, 254, 0.8); border-radius: 12px; pointer-events: none;"></div>
+          <div style="position: absolute; inset: 20px; border: 2px dashed rgba(56, 189, 248, 0.85); border-radius: 16px; pointer-events: none;"></div>
         </div>
-        <div id="mobileScannerFeedback" style="font-size: 12px; color: #00f2fe; margin-top: 8px; font-weight: 600;">
+        <div id="mobileScannerFeedback" style="font-size: 12px; color: #38bdf8; margin-top: 8px; font-weight: 700;">
           📷 Aim camera at the QR code on your PC screen...
         </div>
-        <button id="stopScannerBtn" type="button" style="margin-top: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #e2e8f0; font-size: 12px; padding: 6px 14px; border-radius: 8px; cursor: pointer;">
+        <button id="stopScannerBtn" type="button" class="header-btn" style="margin-top: 10px; font-size: 12px; padding: 6px 14px;">
           ✖️ Stop Camera
         </button>
       </div>
 
       <!-- Button to Activate Camera Scanner -->
-      <button id="startScanFromModalBtn" type="button" style="width: 100%; padding: 13px; border-radius: 12px; background: linear-gradient(135deg, #00f2fe 0%, #2563eb 100%); border: none; color: #07101e; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);">
+      <button id="startScanFromModalBtn" type="button" class="btn-obsidian-pill" style="justify-content: center; background: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%); color: #07101e; margin-bottom: 10px;">
         <span style="font-size: 18px;">📷</span>
         <span>Open Live Camera Scanner</span>
       </button>
 
       <!-- Fallback Snapshot Camera Button -->
       <input type="file" id="snapshotQrInput" accept="image/*" capture="environment" style="display: none;">
-      <button id="snapshotQrBtn" type="button" style="width: 100%; padding: 10px; border-radius: 10px; background: rgba(0, 242, 254, 0.1); border: 1px dashed rgba(0, 242, 254, 0.4); color: #00f2fe; font-size: 12.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 12px;">
-        <span>📸</span>
-        <span>Or Snap Photo with System Camera</span>
+      <button id="snapshotQrBtn" type="button" class="header-btn" style="width: 100%; justify-content: center; padding: 10px; margin-bottom: 14px; font-size: 12px;">
+        <span>📸 Snap Photo with Camera</span>
       </button>
 
-      <div style="display: flex; align-items: center; gap: 10px; margin: 12px 0;">
+      <div style="display: flex; align-items: center; gap: 10px; margin: 14px 0;">
         <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
-        <span style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600;">or enter 6-digit code</span>
+        <span style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">or enter 6-digit code</span>
         <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
       </div>
 
-      <input type="text" id="manualRoomCodeInput" maxlength="6" placeholder="e.g. 482910" style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; font-family: monospace; letter-spacing: 4px; padding: 10px; background: #0b0f16; border: 1px solid rgba(0, 150, 255, 0.4); border-radius: 10px; color: #00f2fe; margin-bottom: 8px; box-sizing: border-box; outline: none;">
+      <input type="text" id="manualRoomCodeInput" maxlength="6" placeholder="e.g. 482910" style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; font-family: monospace; letter-spacing: 4px; padding: 12px; background: #070b14; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; color: #38bdf8; margin-bottom: 10px; box-sizing: border-box; outline: none;">
 
-      <input type="text" id="manualDeviceNameInput" maxlength="25" placeholder="Device Name (e.g. Vedant's PC, Office PC)" style="width: 100%; text-align: center; font-size: 12.5px; padding: 9px; background: #0b0f16; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #f1f5f9; margin-bottom: 12px; box-sizing: border-box; outline: none;">
+      <input type="text" id="manualDeviceNameInput" maxlength="25" placeholder="Device Name (e.g. Vedant's PC, Office PC)" style="width: 100%; text-align: center; font-size: 13px; padding: 10px; background: #070b14; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #f1f5f9; margin-bottom: 14px; box-sizing: border-box; outline: none;">
       
-      <button id="connectRoomBtn" type="button" style="width: 100%; padding: 12px; border-radius: 10px; background: #2563eb; border: none; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;">
+      <button id="connectRoomBtn" type="button" class="btn-obsidian-pill" style="justify-content: center; background: var(--accent-blue);">
         🔗 Save &amp; Connect to PC
       </button>
     </div>
@@ -842,19 +638,19 @@
 
   <!-- Mobile User Guide Modal -->
   <div id="mobileGuideModal" class="beam-modal">
-    <div class="beam-modal-card" style="max-width: 440px; text-align: left; max-height: 85vh; overflow-y: auto; padding: 22px;">
+    <div class="beam-modal-card" style="max-width: 440px; text-align: left; max-height: 85vh; overflow-y: auto; padding: 24px;">
       <button id="closeMobileGuideBtn" class="beam-close-btn">&times;</button>
-      <div style="text-align: center; margin-bottom: 16px;">
+      <div style="text-align: center; margin-bottom: 18px;">
         <span style="font-size: 34px;">📖</span>
-        <h3 style="font-size: 19px; font-weight: 800; color: #fff; margin: 6px 0 3px;">How to Use V-Share</h3>
+        <h3 style="font-size: 20px; font-weight: 800; color: #fff; margin: 6px 0 3px;">How to Use V-Share</h3>
         <p style="font-size: 12px; color: #94a3b8; margin: 0;">Quick guide to transferring files seamlessly</p>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12.5px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
         <!-- Step 1 -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
-          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(56,189,248,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">1</span>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 14px;">
+          <div style="font-weight: 800; color: #38bdf8; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <span style="background: rgba(56,189,248,0.2); width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">1</span>
             Pair Phone with Your PC
           </div>
           <div style="color: #cbd5e1; line-height: 1.45;">
@@ -863,9 +659,9 @@
         </div>
 
         <!-- Step 2 -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
-          <div style="font-weight: 700; color: #a855f7; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(168,85,247,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">2</span>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 14px;">
+          <div style="font-weight: 800; color: #a855f7; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <span style="background: rgba(168,85,247,0.2); width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">2</span>
             Send Files from This Phone
           </div>
           <div style="color: #cbd5e1; line-height: 1.45;">
@@ -874,40 +670,38 @@
         </div>
 
         <!-- Step 3 -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
-          <div style="font-weight: 700; color: #10b981; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(16,185,129,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">3</span>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 14px;">
+          <div style="font-weight: 800; color: #10b981; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <span style="background: rgba(168,85,247,0.2); width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">3</span>
             Automatic Saving on PC
           </div>
           <div style="color: #cbd5e1; line-height: 1.45;">
-            Your PC automatically receives files straight into <code style="background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px; color: #67e8f9;">Downloads\Submitt</code>. No manual clicking needed!
+            Your PC automatically receives files straight into <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 6px; color: #67e8f9;">Downloads\Submitt</code>. No manual clicking needed!
           </div>
         </div>
 
         <!-- Step 4 -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px;">
-          <div style="font-weight: 700; color: #f59e0b; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(245,158,11,0.2); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">4</span>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 14px;">
+          <div style="font-weight: 800; color: #f59e0b; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <span style="background: rgba(245,158,11,0.2); width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">4</span>
             Share from Drive / WhatsApp (App)
           </div>
           <div style="color: #cbd5e1; line-height: 1.45;">
-            Install the <b>V-Share Android App</b> above. In Google Drive, Photos, or Files, tap regular <b>Share</b> &rarr; choose <b>Send to PC (V-Share)</b>!
+            Install the <b>V-Share Android App</b>. In Google Drive, Photos, or Files, tap regular <b>Share</b> &rarr; choose <b>Send to PC (V-Share)</b>!
           </div>
         </div>
       </div>
 
-      <button id="gotItMobileGuideBtn" type="button" style="width: 100%; margin-top: 16px; padding: 11px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;">
+      <button id="gotItMobileGuideBtn" type="button" class="btn-obsidian-pill" style="margin-top: 18px; justify-content: center; background: var(--accent-blue);">
         Got It, Let's Share!
       </button>
     </div>
   </div>
 
-
-
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/mobile.js?v=25"></script>
+  <script src="/js/mobile.js?v=30"></script>
 </body>
 </html>
