@@ -181,23 +181,25 @@ function initMobileApp() {
       if (roomId) {
         mobileRoomCodeText.textContent = roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId;
       } else {
-        mobileRoomCodeText.textContent = 'Not Paired';
+        mobileRoomCodeText.textContent = '--- ---';
       }
     }
 
     if (roomStatusTitle) {
       if (roomId) {
-        roomStatusTitle.textContent = isPaired ? `🟢 Paired with ${displayName}` : `⏳ Connecting to ${displayName}...`;
+        roomStatusTitle.textContent = isPaired ? 'Connected' : 'Connecting...';
       } else {
-        roomStatusTitle.textContent = 'Tap to Pair with Your PC';
+        roomStatusTitle.textContent = 'Tap to Pair';
       }
     }
 
     if (roomStatusSubtitle) {
-      if (roomId) {
-        roomStatusSubtitle.innerHTML = `Target PC: <b style="color: #60a5fa;">${displayName}</b> (${roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId})`;
+      if (isPaired) {
+        roomStatusSubtitle.innerHTML = `Paired with <b>${displayName}</b> &bull; Files save directly to PC Downloads folder in full original quality.`;
+      } else if (roomId) {
+        roomStatusSubtitle.innerHTML = `Connecting to <b>${displayName}</b>... Ensure phone &amp; PC are on the same Wi-Fi.`;
       } else {
-        roomStatusSubtitle.textContent = 'Enter the 6-digit code shown on your PC';
+        roomStatusSubtitle.textContent = 'Scan QR or enter the 6-digit pairing code shown on your PC.';
       }
     }
 
@@ -229,7 +231,17 @@ function initMobileApp() {
   const mobileScannerContainer = document.getElementById('mobileScannerContainer');
   const mobileScannerVideo = document.getElementById('mobileScannerVideo');
   const mobileScannerCanvas = document.getElementById('mobileScannerCanvas');
-  const mobileScannerFeedback = document.getElementById('mobileScannerFeedback');
+  const mobileSettingsBtn = document.getElementById('mobileSettingsBtn');
+  if (mobileSettingsBtn) {
+    mobileSettingsBtn.addEventListener('click', () => {
+      const bridge = window.AndroidHost || window.AndroidBridge;
+      if (bridge && typeof bridge.openSettings === 'function') {
+        bridge.openSettings();
+      } else if (pairModal) {
+        pairModal.classList.add('active');
+      }
+    });
+  }
 
   let mobileCameraStream = null;
   let mobileScanAnimId = null;

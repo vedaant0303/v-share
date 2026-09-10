@@ -12,7 +12,7 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <!-- Top In-App Bar -->
+        <!-- Top In-App Bar (Hidden for sleek edge-to-edge modern design) -->
         <LinearLayout
             android:id="@+id/webHeader"
             android:layout_width="match_parent"
@@ -21,7 +21,8 @@
             android:gravity="center_vertical"
             android:paddingLeft="16dp"
             android:paddingRight="12dp"
-            android:background="#151a24">
+            android:background="#151a24"
+            android:visibility="gone">
 
             <ImageView
                 android:layout_width="38dp"

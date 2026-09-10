@@ -21,14 +21,14 @@
   <link rel="stylesheet" href="/css/style.css?v=30">
   <style>
     body {
-      padding-bottom: max(100px, calc(80px + env(safe-area-inset-bottom)));
+      padding-bottom: max(130px, calc(110px + env(safe-area-inset-bottom)));
       overflow-x: hidden;
     }
 
     .mobile-container {
-      max-width: 480px;
+      max-width: 460px;
       margin: 0 auto;
-      padding: max(16px, env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom));
+      padding: max(16px, env(safe-area-inset-top)) 16px calc(110px + env(safe-area-inset-bottom));
       position: relative;
       z-index: 2;
       -webkit-overflow-scrolling: touch;
@@ -180,7 +180,7 @@
     <header class="top-status-bar">
       <div class="top-status-left">
         <div class="date-tag">Today &bull; Fast Local Wi-Fi</div>
-        <div class="headline">V-Share Pro</div>
+        <div class="headline">V-Share</div>
       </div>
 
       <div class="top-status-right">
@@ -188,16 +188,19 @@
         <div class="circular-gauge-wrap" title="Live Connection Quality">
           <div class="circular-gauge">
             <svg viewBox="0 0 36 36">
-              <path class="gauge-bg" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-              <path id="gaugeFgPath" class="gauge-fg" stroke-width="3" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <circle class="gauge-bg" cx="18" cy="18" r="14" fill="none" stroke-width="3"></circle>
+              <circle id="gaugeCircleFg" class="gauge-fg" cx="18" cy="18" r="14" fill="none" stroke-width="3" stroke="#10b981" stroke-dasharray="88" stroke-dashoffset="0"></circle>
             </svg>
             <span id="circularGaugePercent" class="gauge-val">100%</span>
           </div>
         </div>
 
-        <button id="openMobileGuideBtn" type="button" class="header-btn" style="padding: 7px 12px;">
-          <span>📖</span>
-          <span>Guide</span>
+        <button id="openMobileGuideBtn" type="button" class="header-btn" style="padding: 7px 13px;">
+          <span>📖 Guide</span>
+        </button>
+
+        <button id="mobileSettingsBtn" type="button" class="header-btn" style="padding: 7px 10px;" title="Connection Settings">
+          <span>⚙️</span>
         </button>
 
         <div id="mobileStatusPill" class="status-pill" style="display: none;">
@@ -226,22 +229,20 @@
          ===================================================================== -->
     <section class="hero-card">
       <div class="hero-eyebrow">
-        <div style="display: flex; align-items: center; gap: 6px;">
+        <div class="hero-status-pill" onclick="if(document.getElementById('pairModal')) document.getElementById('pairModal').classList.add('active');" style="cursor: pointer;" title="Tap to switch PC">
           <span id="roomStatusDot" class="status-dot"></span>
-          <span id="roomStatusTitle">Target PC &bull; Living Room</span>
+          <span id="roomStatusTitle">Connected</span>
         </div>
-        <div id="mobileRoomCodeText" style="font-family: monospace; font-size: 12px; color: #2563eb; background: rgba(37, 99, 235, 0.1); padding: 2px 8px; border-radius: 9999px;">
-          --- ---
-        </div>
+        <span id="mobileRoomCodeText" class="hero-code-pill" onclick="if(document.getElementById('pairModal')) document.getElementById('pairModal').classList.add('active');" style="cursor: pointer;" title="Tap to enter code">--- ---</span>
       </div>
 
-      <h1 class="hero-title">Instant Screen Cast &amp; File Drop</h1>
+      <h1 class="hero-title">Instant File Drop</h1>
       <p id="roomStatusSubtitle" class="hero-desc">
-        Stream your phone screen live with low latency or drop photos, documents, and videos directly into your PC folder.
+        Drop photos, videos, and documents straight into your PC Downloads folder in full original quality.
       </p>
 
       <!-- Signature Obsidian Pill Button: Primary Drop Action -->
-      <button id="dropFilesHeroBtn" type="button" class="btn-obsidian-pill" style="margin-bottom: 12px;" onclick="document.getElementById('generalFilePicker').click();">
+      <button id="dropFilesHeroBtn" type="button" class="btn-obsidian-pill" onclick="document.getElementById('generalFilePicker').click();">
         <div class="pill-left">
           <span class="pill-badge-icon">⚡</span>
           <span>Drop Files to PC</span>
@@ -249,18 +250,17 @@
         <span class="pill-tag">Instant Wi-Fi</span>
       </button>
 
-      <!-- Primary Drop Zone Inside Hero Card -->
-      <div id="mobileDropCard" class="hero-drop-area">
-        <svg class="drop-icon-svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-        <div class="drop-title">Tap to Drop Files to PC</div>
-        <div id="mobileDropSubtitle" class="drop-sub">
-          Direct Wi-Fi transfer straight into your PC Downloads
+      <!-- Next Up Section inside the card (Direct inspiration from reference mockup) -->
+      <div class="hero-nextup-row" onclick="document.getElementById('sharePhoneScreenBtn').click();" title="Start live phone screen cast">
+        <div class="nextup-left">
+          <span class="nextup-label">Live Stream</span>
+          <span class="nextup-text">📱 Share phone screen to PC</span>
         </div>
+        <span class="nextup-arrow">›</span>
       </div>
+
+      <!-- Hidden compatibility hook -->
+      <div id="mobileDropCard" style="display: none;"></div>
     </section>
 
     <!-- Hidden Input Pickers (iOS & Android Compatible) -->
@@ -460,16 +460,10 @@
        ===================================================================== -->
   <div class="floating-bottom-dock">
     <button type="button" class="dock-pill-btn primary" onclick="document.getElementById('generalFilePicker').click();">
-      <span>⚡</span>
-      <span>Drop File</span>
-    </button>
-    <button type="button" class="dock-pill-btn" onclick="document.getElementById('sharePhoneScreenBtn').click();">
-      <span>📱</span>
-      <span>Cast Screen</span>
+      <span>⚡ Drop File</span>
     </button>
     <button type="button" class="dock-pill-btn" onclick="document.getElementById('pairModal').classList.add('active'); document.getElementById('startScanFromModalBtn').click();">
-      <span>📷</span>
-      <span>Scan QR</span>
+      <span>📷 Scan QR</span>
     </button>
   </div>
 

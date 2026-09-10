@@ -205,28 +205,98 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.hero-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #f1f5f9;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
   font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.hero-code-pill {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-dark-muted);
-  margin-bottom: 12px;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .hero-card .hero-title {
-  font-size: 25px;
+  font-size: 26px;
   font-weight: 800;
   color: var(--text-dark-hero);
   letter-spacing: -0.035em;
-  line-height: 1.22;
+  line-height: 1.2;
   margin-bottom: 8px;
 }
 
 .hero-card .hero-desc {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--text-dark-body);
-  line-height: 1.5;
-  margin-bottom: 20px;
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+
+.hero-nextup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(15, 23, 42, 0.07);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.hero-nextup-row:hover {
+  opacity: 0.85;
+}
+
+.hero-nextup-row:active {
+  transform: scale(0.99);
+}
+
+.hero-nextup-row .nextup-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-nextup-row .nextup-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dark-muted);
+}
+
+.hero-nextup-row .nextup-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.hero-nextup-row .nextup-arrow {
+  font-size: 16px;
+  font-weight: 800;
+  color: #94a3b8;
 }
 
 /* =========================================================================

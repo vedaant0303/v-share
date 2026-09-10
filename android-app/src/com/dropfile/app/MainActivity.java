@@ -189,6 +189,11 @@ public class MainActivity extends Activity {
             }
 
             @JavascriptInterface
+            public void openSettings() {
+                runOnUiThread(() -> showSettingsView());
+            }
+
+            @JavascriptInterface
             public String checkLocalServer(String localUrl) {
                 if (localUrl == null || localUrl.isEmpty()) return "";
                 try {
@@ -235,6 +240,11 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             public boolean isNative() {
                 return true;
+            }
+
+            @JavascriptInterface
+            public void openSettings() {
+                runOnUiThread(() -> showSettingsView());
             }
 
             @JavascriptInterface
