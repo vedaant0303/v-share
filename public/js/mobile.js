@@ -1,6 +1,7 @@
 // DropFile Mobile Client Controller
 function initMobileApp() {
   let ws;
+  let detectedLocalPcUrl = null;
   let transferredFiles = [];
   let receivedFromPcFiles = [];
   try {
@@ -597,8 +598,6 @@ function initMobileApp() {
         checkServerHealth();
       };
 
-  let detectedLocalPcUrl = null;
-
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
@@ -769,8 +768,8 @@ function initMobileApp() {
           body: JSON.stringify({ roomId: currentRoomId })
         }).catch(() => {});
 
-        const serverUrl = detectedLocalPcUrl || window.location.origin;
-        showToast(detectedLocalPcUrl ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
+        const serverUrl = (typeof detectedLocalPcUrl !== 'undefined' && detectedLocalPcUrl) ? detectedLocalPcUrl : window.location.origin;
+        showToast((typeof detectedLocalPcUrl !== 'undefined' && detectedLocalPcUrl) ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
         bridge.startScreenCapture(currentRoomId, serverUrl);
       } catch (err) {
         console.error('Error invoking native startScreenCapture:', err);
