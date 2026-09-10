@@ -228,24 +228,21 @@ app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }),
     if (roomId && rooms.has(roomId)) {
       const room = rooms.get(roomId);
       for (const pc of room.pcClients) {
-        if (pc.readyState === WebSocket.OPEN) {
+        // Zero-Lag Guarantee: only push if client has drained previous frame
+        if (pc.readyState === WebSocket.OPEN && pc.bufferedAmount === 0) {
           pc.send(req.body);
           sent = true;
         }
       }
     }
-    // Fallback: if no PC in that specific room yet, broadcast to any connected PC or Cloud Bridge
+    // Fallback: if no PC in that specific room yet, broadcast to any connected PC
     if (!sent) {
       for (const client of clients) {
-        if ((client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN) {
+        if ((client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount === 0) {
           client.send(req.body);
           sent = true;
         }
       }
-    }
-    // Also pass to local Cloud Bridge if active locally
-    if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
-      activeCloudBridgeWs.send(req.body);
     }
   }
   res.status(200).send('OK');
@@ -482,7 +479,7 @@ wss.on('connection', (ws, req) => {
       if (ws.roomId && rooms.has(ws.roomId)) {
         const room = rooms.get(ws.roomId);
         for (const pc of room.pcClients) {
-          if (pc.readyState === WebSocket.OPEN) {
+          if (pc.readyState === WebSocket.OPEN && pc.bufferedAmount === 0) {
             pc.send(message);
             sent = true;
           }
@@ -490,14 +487,11 @@ wss.on('connection', (ws, req) => {
       }
       if (!sent) {
         for (const client of clients) {
-          if (client !== ws && (client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN) {
+          if (client !== ws && (client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount === 0) {
             client.send(message);
             sent = true;
           }
         }
-      }
-      if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
-        activeCloudBridgeWs.send(message);
       }
       return;
     }
@@ -1642,7 +1636,7 @@ server.listen(PORT, '0.0.0.0', () => {
         // Forward binary screen stream frames directly to local PC clients
         if (Buffer.isBuffer(data)) {
           for (const client of clients) {
-            if (client.readyState === WebSocket.OPEN) {
+            if (client.readyState === WebSocket.OPEN && client.bufferedAmount === 0) {
               client.send(data);
             }
           }

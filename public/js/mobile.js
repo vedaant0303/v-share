@@ -598,14 +598,28 @@ function initMobileApp() {
             }
             // Test if PC is directly reachable on the local Wi-Fi network (sub-5ms streaming)
             if (msg.localUrl) {
-              fetch(`${msg.localUrl}/api/ping`, { cache: 'no-cache', mode: 'cors' })
-                .then(r => {
-                  if (r.ok) {
-                    detectedLocalPcUrl = msg.localUrl;
-                    console.log('⚡ Direct Local Wi-Fi available:', msg.localUrl);
-                  }
-                })
-                .catch(() => {});
+              const bridge = window.AndroidHost || window.AndroidBridge;
+              if (bridge && typeof bridge.checkLocalServer === 'function') {
+                setTimeout(() => {
+                  try {
+                    const verified = bridge.checkLocalServer(msg.localUrl);
+                    if (verified) {
+                      detectedLocalPcUrl = verified;
+                      console.log('⚡ Native Wi-Fi bridge verified:', verified);
+                      showToast('⚡ Superfast Local Wi-Fi connected!', '🚀');
+                    }
+                  } catch (e) {}
+                }, 100);
+              } else {
+                fetch(`${msg.localUrl}/api/ping`, { cache: 'no-cache', mode: 'cors' })
+                  .then(r => {
+                    if (r.ok) {
+                      detectedLocalPcUrl = msg.localUrl;
+                      console.log('⚡ Direct Local Wi-Fi available:', msg.localUrl);
+                    }
+                  })
+                  .catch(() => {});
+              }
             }
           }
           if (msg.type === 'clipboard_received' && msg.from === 'PC') {

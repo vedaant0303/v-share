@@ -187,6 +187,23 @@ public class MainActivity extends Activity {
             public boolean isNative() {
                 return true;
             }
+
+            @JavascriptInterface
+            public String checkLocalServer(String localUrl) {
+                if (localUrl == null || localUrl.isEmpty()) return "";
+                try {
+                    URL url = new URL(localUrl + "/api/ping");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(800);
+                    conn.setReadTimeout(800);
+                    int code = conn.getResponseCode();
+                    conn.disconnect();
+                    if (code == 200) {
+                        return localUrl;
+                    }
+                } catch (Exception ignored) {}
+                return "";
+            }
         }, "AndroidHost");
 
         // Also expose AndroidBridge as alias for compatibility
@@ -218,6 +235,23 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             public boolean isNative() {
                 return true;
+            }
+
+            @JavascriptInterface
+            public String checkLocalServer(String localUrl) {
+                if (localUrl == null || localUrl.isEmpty()) return "";
+                try {
+                    URL url = new URL(localUrl + "/api/ping");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(800);
+                    conn.setReadTimeout(800);
+                    int code = conn.getResponseCode();
+                    conn.disconnect();
+                    if (code == 200) {
+                        return localUrl;
+                    }
+                } catch (Exception ignored) {}
+                return "";
             }
         }, "AndroidBridge");
 

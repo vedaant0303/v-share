@@ -225,8 +225,8 @@ public class ScreenCaptureService extends Service {
                 if (image == null) return;
 
                 long now = System.currentTimeMillis();
-                // 40ms throttle = 25 FPS (silky smooth, zero buffer bloat)
-                if (now - mLastFrameTime < 40) {
+                // 70ms throttle = ~14 FPS (rock-solid, zero buffer bloat, ideal for WAN and Wi-Fi)
+                if (now - mLastFrameTime < 70) {
                     return;
                 }
                 mLastFrameTime = now;
@@ -266,8 +266,8 @@ public class ScreenCaptureService extends Service {
                 }
 
                 mBaos.reset();
-                // Quality 38 produces crystal clear text while keeping frame payload under 12 KB
-                cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 38, mBaos);
+                // Quality 32 produces clean, sharp text while keeping frame payload under 8-10 KB
+                cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 32, mBaos);
                 byte[] jpegBytes = mBaos.toByteArray();
 
                 sendFrameToPc(jpegBytes);
@@ -413,6 +413,7 @@ public class ScreenCaptureService extends Service {
         private final String mRoomId;
         private volatile boolean mConnected = false;
         private volatile boolean mClosed = false;
+        private long mLastConnectAttempt = 0;
 
         public WebSocketStreamer(String serverUrl, String roomId) {
             this.mServerUrl = serverUrl;
@@ -421,6 +422,7 @@ public class ScreenCaptureService extends Service {
 
         public synchronized boolean connect() {
             if (mConnected && mSocket != null && !mSocket.isClosed()) return true;
+            mLastConnectAttempt = System.currentTimeMillis();
             try {
                 URI uri = new URI(mServerUrl);
                 String host = uri.getHost();
@@ -433,13 +435,18 @@ public class ScreenCaptureService extends Service {
                 }
 
                 if (isSsl) {
-                    mSocket = SSLSocketFactory.getDefault().createSocket(host, port);
+                    javax.net.ssl.SSLSocket sslSocket = (javax.net.ssl.SSLSocket) SSLSocketFactory.getDefault().createSocket(host, port);
+                    try {
+                        java.lang.reflect.Method setHostname = sslSocket.getClass().getMethod("setHostname", String.class);
+                        setHostname.invoke(sslSocket, host);
+                    } catch (Exception ignored) {}
+                    mSocket = sslSocket;
                 } else {
                     mSocket = new Socket(host, port);
                 }
                 // Instant delivery without Nagle packet aggregation
                 mSocket.setTcpNoDelay(true);
-                mSocket.setSoTimeout(4000);
+                mSocket.setSoTimeout(1200);
 
                 mOut = new BufferedOutputStream(mSocket.getOutputStream(), 64 * 1024);
                 mIn = mSocket.getInputStream();
@@ -491,7 +498,13 @@ public class ScreenCaptureService extends Service {
         public synchronized boolean sendBinaryFrame(byte[] jpegBytes) {
             if (mClosed) return false;
             if (!mConnected) {
-                if (!connect()) return false;
+                long now = System.currentTimeMillis();
+                // Never block frame pipeline: only retry connection every 8 seconds
+                if (now - mLastConnectAttempt > 8000) {
+                    if (!connect()) return false;
+                } else {
+                    return false;
+                }
             }
             try {
                 byte[] header = createFrameHeader(jpegBytes.length, 0x02); // opcode 2 = binary
