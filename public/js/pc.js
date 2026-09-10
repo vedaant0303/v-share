@@ -1545,6 +1545,18 @@ document.addEventListener('DOMContentLoaded', () => {
     phoneScreenFullscreenBtn.addEventListener('click', togglePhoneFullscreen);
   }
 
+  const openPhoneScreenBtn = document.getElementById('openPhoneScreenBtn');
+  if (openPhoneScreenBtn) {
+    openPhoneScreenBtn.addEventListener('click', () => {
+      if (phoneScreenModal) {
+        phoneScreenModal.style.display = 'flex';
+        if (phoneScreenImg && !phoneScreenImg.src && phoneScreenVideo && !phoneScreenVideo.srcObject) {
+          showToast('Waiting for phone screen stream... Tap "Share Screen" on phone!', '📱');
+        }
+      }
+    });
+  }
+
   // Initial Boot
   restoreSavedDirectory();
   loadSystemInfo();

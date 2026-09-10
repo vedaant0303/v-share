@@ -223,14 +223,29 @@ function broadcastToMobile(roomId, data, excludeWs = null) {
 // Native Screen Frame Streaming API from Android App (raw binary JPEG)
 app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }), (req, res) => {
   const roomId = req.headers['x-room-id'];
-  if (roomId && req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
-    const room = rooms.get(roomId);
-    if (room && room.pcClients) {
+  if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
+    let sent = false;
+    if (roomId && rooms.has(roomId)) {
+      const room = rooms.get(roomId);
       for (const pc of room.pcClients) {
         if (pc.readyState === WebSocket.OPEN) {
           pc.send(req.body);
+          sent = true;
         }
       }
+    }
+    // Fallback: if no PC in that specific room yet, broadcast to any connected PC or Cloud Bridge
+    if (!sent) {
+      for (const client of clients) {
+        if ((client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN) {
+          client.send(req.body);
+          sent = true;
+        }
+      }
+    }
+    // Also pass to local Cloud Bridge if active locally
+    if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+      activeCloudBridgeWs.send(req.body);
     }
   }
   res.status(200).send('OK');
@@ -241,6 +256,8 @@ app.post('/api/phone-screen-stop', express.json(), (req, res) => {
   const roomId = req.headers['x-room-id'] || (req.body && req.body.roomId);
   if (roomId) {
     broadcastToPc(roomId, { type: 'phone_screen_stop', role: 'phone', roomId });
+  } else {
+    broadcast({ type: 'phone_screen_stop', role: 'phone' });
   }
   res.status(200).send('OK');
 });
@@ -1585,6 +1602,16 @@ server.listen(PORT, '0.0.0.0', () => {
       });
 
       bridgeWs.on('message', (data) => {
+        // Forward binary screen stream frames directly to local PC clients
+        if (Buffer.isBuffer(data)) {
+          for (const client of clients) {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(data);
+            }
+          }
+          return;
+        }
+
         try {
           const msg = JSON.parse(data);
 

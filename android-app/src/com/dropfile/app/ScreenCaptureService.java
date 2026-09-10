@@ -232,11 +232,13 @@ public class ScreenCaptureService extends Service {
     }
 
     private void sendFrameToPc(final byte[] jpegBytes) {
-        if (mServerUrl == null || mRoomId == null) return;
+        if (mServerUrl == null || mServerUrl.isEmpty()) return;
         if (!mIsSending.compareAndSet(false, true)) {
             // Drop frame if previous one is still sending
             return;
         }
+
+        final String targetRoom = (mRoomId != null) ? mRoomId : "";
 
         mNetworkExecutor.execute(() -> {
             HttpURLConnection conn = null;
@@ -248,7 +250,7 @@ public class ScreenCaptureService extends Service {
                 conn.setConnectTimeout(2500);
                 conn.setReadTimeout(2500);
                 conn.setRequestProperty("Content-Type", "image/jpeg");
-                conn.setRequestProperty("X-Room-Id", mRoomId);
+                conn.setRequestProperty("X-Room-Id", targetRoom);
                 conn.setFixedLengthStreamingMode(jpegBytes.length);
 
                 OutputStream os = conn.getOutputStream();
