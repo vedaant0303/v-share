@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Persistent Room Pairing Identifier (Stored in localStorage so it stays identical across tabs and browser restarts)
   let currentRoomId = localStorage.getItem('vshare_pc_room_id') || '';
+  let phoneScreenViewerDismissed = false;
 
   function setRoomCode(code) {
     if (!code) return;
@@ -1055,6 +1056,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ws.onmessage = (event) => {
       // Direct binary frame stream from Android ScreenCaptureService (Hardware Accelerated Canvas)
       if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+        if (phoneScreenViewerDismissed) {
+          return; // Modal closed by user: do not auto-reopen!
+        }
         const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'image/jpeg' });
         if (phoneScreenModal && phoneScreenModal.style.display !== 'flex') {
           phoneScreenModal.style.display = 'flex';
@@ -1422,6 +1426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function handlePhoneScreenOffer(offer, roomId) {
     if (!offer) return;
+    phoneScreenViewerDismissed = false; // Reset on explicit incoming offer
 
     if (phoneScreenPeerConnection) {
       try { phoneScreenPeerConnection.close(); } catch (e) {}
@@ -1478,6 +1483,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closePhoneScreenViewer(notifyMobile = true) {
+    phoneScreenViewerDismissed = true; // Dismissed by user: prevent automatic reopening!
+
     if (phoneScreenPeerConnection) {
       try { phoneScreenPeerConnection.close(); } catch (e) {}
       phoneScreenPeerConnection = null;
@@ -1521,6 +1528,13 @@ document.addEventListener('DOMContentLoaded', () => {
         roomId: currentRoomId
       }));
     }
+
+    // Notify backend directly via HTTP so fallback streamers stop immediately
+    fetch('/api/phone-screen-stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: currentRoomId, role: 'pc' })
+    }).catch(() => {});
   }
 
   function takePhoneScreenshot() {
@@ -1593,14 +1607,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const openPhoneScreenBtn = document.getElementById('openPhoneScreenBtn');
   if (openPhoneScreenBtn) {
     openPhoneScreenBtn.addEventListener('click', () => {
+      phoneScreenViewerDismissed = false; // User manually opened viewer
       if (phoneScreenModal) {
         phoneScreenModal.style.display = 'flex';
         if (phoneScreenImg && !phoneScreenImg.src && phoneScreenVideo && !phoneScreenVideo.srcObject) {
-          showToast('Waiting for phone screen stream... Tap "Share Screen" on phone!', '📱');
+          showToast('Waiting for phone screen stream... Tap "Cast Screen" on phone!', '📱');
         }
       }
     });
   }
+
+  // Backdrop and Escape key dismissal
+  if (phoneScreenModal) {
+    phoneScreenModal.addEventListener('click', (e) => {
+      if (e.target === phoneScreenModal) {
+        closePhoneScreenViewer(true);
+      }
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && phoneScreenModal && phoneScreenModal.style.display === 'flex') {
+      closePhoneScreenViewer(true);
+    }
+  });
 
   // Initial Boot
   restoreSavedDirectory();

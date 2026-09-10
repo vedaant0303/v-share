@@ -240,13 +240,13 @@
         Stream your phone screen live with low latency or drop photos, documents, and videos directly into your PC folder.
       </p>
 
-      <!-- Signature Obsidian Pill Button (Inspired by "Start task 2 hours") -->
-      <button id="sharePhoneScreenBtn" type="button" class="btn-obsidian-pill" style="margin-bottom: 12px;">
+      <!-- Signature Obsidian Pill Button: Primary Drop Action -->
+      <button id="dropFilesHeroBtn" type="button" class="btn-obsidian-pill" style="margin-bottom: 12px;" onclick="document.getElementById('generalFilePicker').click();">
         <div class="pill-left">
-          <span class="pill-badge-icon">📱</span>
-          <span>Share Phone Screen to PC</span>
+          <span class="pill-badge-icon">⚡</span>
+          <span>Drop Files to PC</span>
         </div>
-        <span class="pill-tag">14 FPS &bull; Realtime</span>
+        <span class="pill-tag">Instant Wi-Fi</span>
       </button>
 
       <!-- Primary Drop Zone Inside Hero Card -->
@@ -341,21 +341,25 @@
 
     <!-- Secondary Action Grid -->
     <div class="mobile-actions-grid">
-      <button id="galleryBtn" class="mobile-action-pill-btn">
+      <button id="sharePhoneScreenBtn" type="button" class="mobile-action-pill-btn">
+        <span class="action-icon-circle">📱</span>
+        <span>Cast Screen</span>
+      </button>
+      <button id="galleryBtn" type="button" class="mobile-action-pill-btn">
         <span class="action-icon-circle">🖼️</span>
         <span>Photos &amp; Videos</span>
       </button>
-      <button id="docsBtn" class="mobile-action-pill-btn">
+      <button id="docsBtn" type="button" class="mobile-action-pill-btn">
         <span class="action-icon-circle">📁</span>
         <span>Browse Files</span>
       </button>
-      <button id="beamDocBtn" class="mobile-action-pill-btn">
+      <button id="beamDocBtn" type="button" class="mobile-action-pill-btn">
         <span class="action-icon-circle">📷</span>
-        <span>Tap to PC Camera</span>
+        <span>Tap Camera</span>
       </button>
-      <button id="syncTabBtn" class="mobile-action-pill-btn">
+      <button id="syncTabBtn" type="button" class="mobile-action-pill-btn" style="grid-column: 1 / -1;">
         <span class="action-icon-circle">💬</span>
-        <span>Send Note / Link</span>
+        <span>Send Note / Link to PC</span>
       </button>
     </div>
 
