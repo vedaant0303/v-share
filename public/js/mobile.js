@@ -702,6 +702,19 @@ function initMobileApp() {
   // Global callbacks invoked by native Android host app
   window.onNativeScreenCaptureStarted = function() {
     isNativeSharingActive = true;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'phone_screen_start',
+        role: 'phone',
+        roomId: currentRoomId
+      }));
+    }
+    fetch('/api/phone-screen-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: currentRoomId })
+    }).catch(() => {});
+
     if (phoneCastingBanner) phoneCastingBanner.style.display = 'flex';
     if (sharePhoneScreenBtn) {
       sharePhoneScreenBtn.innerHTML = `
@@ -743,6 +756,19 @@ function initMobileApp() {
     const bridge = window.AndroidHost || window.AndroidBridge;
     if (bridge && typeof bridge.startScreenCapture === 'function') {
       try {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'phone_screen_start',
+            role: 'phone',
+            roomId: currentRoomId
+          }));
+        }
+        fetch('/api/phone-screen-start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId: currentRoomId })
+        }).catch(() => {});
+
         const serverUrl = detectedLocalPcUrl || window.location.origin;
         showToast(detectedLocalPcUrl ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
         bridge.startScreenCapture(currentRoomId, serverUrl);
@@ -764,6 +790,19 @@ function initMobileApp() {
           },
           audio: false
         });
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'phone_screen_start',
+            role: 'phone',
+            roomId: currentRoomId
+          }));
+        }
+        fetch('/api/phone-screen-start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId: currentRoomId })
+        }).catch(() => {});
 
         // Handle user stopping stream from native browser overlay
         if (phoneScreenStream.getVideoTracks() && phoneScreenStream.getVideoTracks()[0]) {
@@ -877,12 +916,19 @@ function initMobileApp() {
       sharePhoneScreenBtn.style.borderColor = 'rgba(168, 85, 247, 0.5)';
     }
 
-    if (notifyPc && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'phone_screen_stop',
-        role: 'phone',
-        roomId: currentRoomId
-      }));
+    if (notifyPc) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'phone_screen_stop',
+          role: 'phone',
+          roomId: currentRoomId
+        }));
+      }
+      fetch('/api/phone-screen-stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: currentRoomId })
+      }).catch(() => {});
     }
   }
 

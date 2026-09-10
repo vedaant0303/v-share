@@ -220,9 +220,29 @@ function broadcastToMobile(roomId, data, excludeWs = null) {
   }
 }
 
+// Start Screen Share notification from Mobile
+app.post('/api/phone-screen-start', express.json(), (req, res) => {
+  const roomId = req.headers['x-room-id'] || (req.body && req.body.roomId);
+  if (roomId && rooms.has(roomId)) {
+    rooms.get(roomId).screenShareDismissed = false;
+  }
+  if (roomId) {
+    broadcastToPc(roomId, { type: 'phone_screen_start', role: 'phone', roomId });
+  } else {
+    broadcast({ type: 'phone_screen_start', role: 'phone' });
+  }
+  res.status(200).send('OK');
+});
+
 // Native Screen Frame Streaming API from Android App (raw binary JPEG)
 app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }), (req, res) => {
   const roomId = req.headers['x-room-id'];
+  if (roomId && rooms.has(roomId)) {
+    const room = rooms.get(roomId);
+    if (room.screenShareDismissed) {
+      return res.status(410).send('STOP'); // Tell Android service to stop sending frames immediately!
+    }
+  }
   if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
     let sent = false;
     if (roomId && rooms.has(roomId)) {
@@ -235,8 +255,8 @@ app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }),
         }
       }
     }
-    // Fallback: if no PC in that specific room yet, broadcast to any connected PC
-    if (!sent) {
+    // Fallback: if no PC in that specific room yet, broadcast to any connected PC if not dismissed
+    if (!sent && (!roomId || !rooms.has(roomId) || !rooms.get(roomId).screenShareDismissed)) {
       for (const client of clients) {
         if ((client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount < 64 * 1024) {
           client.send(req.body);
@@ -248,11 +268,15 @@ app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }),
   res.status(200).send('OK');
 });
 
-// Stop Screen Share notification from Android Service
+// Stop Screen Share notification from Mobile or PC
 app.post('/api/phone-screen-stop', express.json(), (req, res) => {
   const roomId = req.headers['x-room-id'] || (req.body && req.body.roomId);
+  if (roomId && rooms.has(roomId)) {
+    rooms.get(roomId).screenShareDismissed = true;
+  }
   if (roomId) {
     broadcastToPc(roomId, { type: 'phone_screen_stop', role: 'phone', roomId });
+    broadcastToMobile(roomId, { type: 'phone_screen_stop', role: 'phone', roomId });
   } else {
     broadcast({ type: 'phone_screen_stop', role: 'phone' });
   }
@@ -475,22 +499,21 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (message) => {
     // 1. High-Performance Screen Streaming (Binary Frames over WebSocket)
     if (Buffer.isBuffer(message)) {
-      let sent = false;
       if (ws.roomId && rooms.has(ws.roomId)) {
         const room = rooms.get(ws.roomId);
+        if (room.screenShareDismissed) {
+          return; // Drop frames when PC user dismissed/stopped stream
+        }
         for (const pc of room.pcClients) {
           if (pc.readyState === WebSocket.OPEN && pc.bufferedAmount < 64 * 1024) {
             pc.send(message);
-            sent = true;
           }
         }
+        return;
       }
-      if (!sent) {
-        for (const client of clients) {
-          if (client !== ws && (client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount < 64 * 1024) {
-            client.send(message);
-            sent = true;
-          }
+      for (const client of clients) {
+        if (client !== ws && (client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN && client.bufferedAmount < 64 * 1024) {
+          client.send(message);
         }
       }
       return;
@@ -657,8 +680,20 @@ wss.on('connection', (ws, req) => {
       }
 
       // Phone-to-PC Screen Mirroring Signaling
+      if (data.type === 'phone_screen_start') {
+        const targetRoom = data.roomId || ws.roomId;
+        if (targetRoom && rooms.has(targetRoom)) {
+          rooms.get(targetRoom).screenShareDismissed = false;
+        }
+        broadcastToPc(targetRoom, data, ws);
+        return;
+      }
+
       if (data.type === 'phone_screen_offer') {
         const targetRoom = data.roomId || ws.roomId;
+        if (targetRoom && rooms.has(targetRoom)) {
+          rooms.get(targetRoom).screenShareDismissed = false;
+        }
         broadcastToPc(targetRoom, data, ws);
         return;
       }
@@ -681,6 +716,9 @@ wss.on('connection', (ws, req) => {
 
       if (data.type === 'phone_screen_stop') {
         const targetRoom = data.roomId || ws.roomId;
+        if (targetRoom && rooms.has(targetRoom)) {
+          rooms.get(targetRoom).screenShareDismissed = true;
+        }
         if (data.role === 'pc') {
           broadcastToMobile(targetRoom, data, ws);
         } else {
@@ -1665,6 +1703,7 @@ server.listen(PORT, '0.0.0.0', () => {
 
           if (msg.type === 'remote_start_request' || msg.type === 'remote_stop' ||
               msg.type === 'webrtc_offer' || msg.type === 'webrtc_answer' || msg.type === 'webrtc_ice_candidate' ||
+              msg.type === 'phone_screen_start' ||
               msg.type === 'phone_screen_offer' || msg.type === 'phone_screen_answer' ||
               msg.type === 'phone_screen_ice_candidate' || msg.type === 'phone_screen_stop') {
             broadcast(msg);

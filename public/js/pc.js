@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Persistent Room Pairing Identifier (Stored in localStorage so it stays identical across tabs and browser restarts)
   let currentRoomId = localStorage.getItem('vshare_pc_room_id') || '';
+  let phoneScreenViewerDismissed = true; // Dismissed by default on page load; only opens on explicit mobile start or user action
 
   function setRoomCode(code) {
     if (!code) return;
@@ -1069,11 +1070,16 @@ document.addEventListener('DOMContentLoaded', () => {
     ws.onmessage = (event) => {
       // Direct binary frame stream from Android ScreenCaptureService (Hardware Accelerated Canvas)
       if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+        if (phoneScreenViewerDismissed) {
+          return; // Modal closed or dismissed: do not auto-reopen on stray background frames!
+        }
         const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'image/jpeg' });
         if (phoneScreenModal && phoneScreenModal.style.display !== 'flex') {
           phoneScreenModal.style.display = 'flex';
           try { playSuccessChime(); } catch (e) {}
         }
+        const placeholder = document.getElementById('phoneScreenPlaceholder');
+        if (placeholder) placeholder.style.display = 'none';
         if (phoneScreenCanvas) {
           phoneScreenCanvas.style.display = 'block';
           if (phoneScreenImg) phoneScreenImg.style.display = 'none';
@@ -1147,9 +1153,23 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`📋 Received from ${msg.from}: ${msg.text.substring(0, 30)}...`, '💬');
         }
 
-        // Phone-to-PC Screen Mirroring WebRTC Handlers
-        if (msg.type === 'phone_screen_offer') {
+        // Phone-to-PC Screen Mirroring Handlers
+        if (msg.type === 'phone_screen_start') {
           console.log('📱 Phone started screen share! Opening viewer modal...');
+          phoneScreenViewerDismissed = false; // Reset dismiss flag on explicit new session
+          if (phoneScreenModal) {
+            phoneScreenModal.style.display = 'flex';
+            try { playSuccessChime(); } catch (e) {}
+          }
+          const placeholder = document.getElementById('phoneScreenPlaceholder');
+          if (placeholder) placeholder.style.display = 'block';
+          showToast('📱 Phone started sharing screen!', '🔴');
+          return;
+        }
+
+        if (msg.type === 'phone_screen_offer') {
+          console.log('📱 Phone started screen share offer! Opening viewer modal...');
+          phoneScreenViewerDismissed = false; // Reset dismiss flag on explicit new offer
           try { playSuccessChime(); } catch (e) {}
           showToast('📱 Phone started sharing screen!', '🔴');
           handlePhoneScreenOffer(msg.offer, msg.roomId);
@@ -1450,6 +1470,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       phoneScreenPeerConnection.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
+          const placeholder = document.getElementById('phoneScreenPlaceholder');
+          if (placeholder) placeholder.style.display = 'none';
           if (phoneScreenVideo) {
             phoneScreenVideo.style.display = 'block';
             if (phoneScreenCanvas) phoneScreenCanvas.style.display = 'none';
@@ -1495,6 +1517,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closePhoneScreenViewer(notifyMobile = true) {
+    phoneScreenViewerDismissed = true; // Dismissed flag: prevents any auto-reopen
+
     if (phoneScreenPeerConnection) {
       try { phoneScreenPeerConnection.close(); } catch (e) {}
       phoneScreenPeerConnection = null;
@@ -1518,6 +1542,11 @@ document.addEventListener('DOMContentLoaded', () => {
       phoneScreenImg.src = '';
     }
 
+    const placeholder = document.getElementById('phoneScreenPlaceholder');
+    if (placeholder) {
+      placeholder.style.display = 'flex';
+    }
+
     if (currentPhoneBlobUrl) {
       try { URL.revokeObjectURL(currentPhoneBlobUrl); } catch (e) {}
       currentPhoneBlobUrl = null;
@@ -1531,12 +1560,19 @@ document.addEventListener('DOMContentLoaded', () => {
       phoneScreenModal.style.display = 'none';
     }
 
-    if (notifyMobile && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'phone_screen_stop',
-        role: 'pc',
-        roomId: currentRoomId
-      }));
+    if (notifyMobile) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'phone_screen_stop',
+          role: 'pc',
+          roomId: currentRoomId
+        }));
+      }
+      fetch('/api/phone-screen-stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: currentRoomId })
+      }).catch(() => {});
     }
   }
 
@@ -1607,12 +1643,31 @@ document.addEventListener('DOMContentLoaded', () => {
     phoneScreenFullscreenBtn.addEventListener('click', togglePhoneFullscreen);
   }
 
+  // Backdrop click to dismiss phone screen modal
+  if (phoneScreenModal) {
+    phoneScreenModal.addEventListener('click', (e) => {
+      if (e.target === phoneScreenModal) {
+        closePhoneScreenViewer(true);
+      }
+    });
+  }
+
+  // Escape key to dismiss phone screen modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && phoneScreenModal && phoneScreenModal.style.display === 'flex') {
+      closePhoneScreenViewer(true);
+    }
+  });
+
   const openPhoneScreenBtn = document.getElementById('openPhoneScreenBtn');
   if (openPhoneScreenBtn) {
     openPhoneScreenBtn.addEventListener('click', () => {
+      phoneScreenViewerDismissed = false; // User explicitly opened viewer
       if (phoneScreenModal) {
         phoneScreenModal.style.display = 'flex';
-        if (phoneScreenImg && !phoneScreenImg.src && phoneScreenVideo && !phoneScreenVideo.srcObject) {
+        const placeholder = document.getElementById('phoneScreenPlaceholder');
+        if (placeholder && (!phoneScreenCanvas || phoneScreenCanvas.style.display === 'none') && (!phoneScreenImg || !phoneScreenImg.src) && (!phoneScreenVideo || !phoneScreenVideo.srcObject)) {
+          placeholder.style.display = 'flex';
           showToast('Waiting for phone screen stream... Tap "Share Screen" on phone!', '📱');
         }
       }

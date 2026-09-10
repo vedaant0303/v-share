@@ -161,7 +161,12 @@ public class ScreenCaptureService extends Service {
 
         // Initialize persistent WebSocket streaming connection in background
         if (mServerUrl != null && !mServerUrl.isEmpty()) {
-            mWsStreamer = new WebSocketStreamer(mServerUrl, mRoomId);
+            mWsStreamer = new WebSocketStreamer(mServerUrl, mRoomId, () -> {
+                mHandler.post(() -> {
+                    stopCapture();
+                    stopSelf();
+                });
+            });
             mNetworkExecutor.execute(() -> {
                 if (mWsStreamer != null) {
                     mWsStreamer.connect();
@@ -320,6 +325,16 @@ public class ScreenCaptureService extends Service {
             os.flush();
             os.close();
 
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 410) {
+                // PC viewer closed/dismissed screen share
+                mHandler.post(() -> {
+                    stopCapture();
+                    stopSelf();
+                });
+                return;
+            }
+
             InputStream is = conn.getInputStream();
             while (is.read(mDiscardBuffer) != -1) {}
             is.close();
@@ -414,13 +429,15 @@ public class ScreenCaptureService extends Service {
         private InputStream mIn;
         private final String mServerUrl;
         private final String mRoomId;
+        private final Runnable mOnStopRequested;
         private volatile boolean mConnected = false;
         private volatile boolean mClosed = false;
         private long mLastConnectAttempt = 0;
 
-        public WebSocketStreamer(String serverUrl, String roomId) {
+        public WebSocketStreamer(String serverUrl, String roomId, Runnable onStopRequested) {
             this.mServerUrl = serverUrl;
             this.mRoomId = roomId;
+            this.mOnStopRequested = onStopRequested;
         }
 
         public synchronized boolean connect() {
@@ -480,17 +497,79 @@ public class ScreenCaptureService extends Service {
 
                 mConnected = true;
 
-                // Send join_room frame immediately upon handshake completion
+                // Send join_room and phone_screen_start frames immediately upon handshake completion
                 if (mRoomId != null && !mRoomId.isEmpty()) {
                     String joinJson = "{\"type\":\"join_room\",\"roomId\":\"" + mRoomId + "\",\"role\":\"mobile\"}";
                     sendTextFrame(joinJson);
+                    String startJson = "{\"type\":\"phone_screen_start\",\"roomId\":\"" + mRoomId + "\",\"role\":\"mobile\"}";
+                    sendTextFrame(startJson);
                 }
+
+                startReaderThread();
 
                 return true;
             } catch (Exception e) {
                 close();
                 return false;
             }
+        }
+
+        private void startReaderThread() {
+            final InputStream inStream = mIn;
+            if (inStream == null) return;
+            Thread readerThread = new Thread(() -> {
+                try {
+                    while (mConnected && mSocket != null && !mSocket.isClosed()) {
+                        int b0 = inStream.read();
+                        if (b0 == -1) break;
+                        int b1 = inStream.read();
+                        if (b1 == -1) break;
+                        int opcode = b0 & 0x0F;
+                        if (opcode == 0x08) { // WS Close
+                            break;
+                        }
+                        int payloadLen = b1 & 0x7F;
+                        if (payloadLen == 126) {
+                            int h = inStream.read();
+                            int l = inStream.read();
+                            if (h == -1 || l == -1) break;
+                            payloadLen = (h << 8) | l;
+                        } else if (payloadLen == 127) {
+                            for (int i = 0; i < 8; i++) inStream.read();
+                            payloadLen = 0;
+                        }
+                        boolean masked = (b1 & 0x80) != 0;
+                        byte[] mask = new byte[4];
+                        if (masked) {
+                            for (int i = 0; i < 4; i++) mask[i] = (byte) inStream.read();
+                        }
+                        byte[] data = new byte[payloadLen];
+                        int totalRead = 0;
+                        while (totalRead < payloadLen) {
+                            int r = inStream.read(data, totalRead, payloadLen - totalRead);
+                            if (r == -1) break;
+                            totalRead += r;
+                        }
+                        if (masked) {
+                            for (int i = 0; i < payloadLen; i++) {
+                                data[i] = (byte) (data[i] ^ mask[i % 4]);
+                            }
+                        }
+                        if (opcode == 0x01 && payloadLen > 0) {
+                            String msg = new String(data, StandardCharsets.UTF_8);
+                            if (msg.contains("phone_screen_stop")) {
+                                if (mOnStopRequested != null) {
+                                    mOnStopRequested.run();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+                close();
+            }, "WS-Reader");
+            readerThread.setDaemon(true);
+            readerThread.start();
         }
 
         private synchronized void sendTextFrame(String text) throws IOException {
