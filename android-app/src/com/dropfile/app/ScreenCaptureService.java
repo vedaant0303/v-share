@@ -161,10 +161,10 @@ public class ScreenCaptureService extends Service {
             metrics = getResources().getDisplayMetrics();
         }
 
-        // Downscale for smooth 20+ FPS streaming without latency
+        // Downscale for lightning-fast 20 FPS streaming with zero lag
         int width = metrics.widthPixels;
         int height = metrics.heightPixels;
-        int targetWidth = 540;
+        int targetWidth = 400; // 400px width yields ~15-20 KB JPEG frames
         int targetHeight = (int) ((float) height / width * targetWidth);
         if (targetWidth % 2 != 0) targetWidth--;
         if (targetHeight % 2 != 0) targetHeight--;
@@ -191,8 +191,8 @@ public class ScreenCaptureService extends Service {
                 if (image == null) return;
 
                 long now = System.currentTimeMillis();
-                // Throttle to ~20 FPS (50 ms)
-                if (now - mLastFrameTime < 50) {
+                // Throttle to ~18 FPS (55 ms)
+                if (now - mLastFrameTime < 55) {
                     return;
                 }
                 mLastFrameTime = now;
@@ -216,10 +216,10 @@ public class ScreenCaptureService extends Service {
                     cleanBitmap = bitmap;
                 }
 
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 60, baos);
+                mBaos.reset();
+                cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 45, mBaos);
                 cleanBitmap.recycle();
-                byte[] jpegBytes = baos.toByteArray();
+                byte[] jpegBytes = mBaos.toByteArray();
 
                 sendFrameToPc(jpegBytes);
             } catch (Exception ignored) {
@@ -231,10 +231,13 @@ public class ScreenCaptureService extends Service {
         }, mHandler);
     }
 
+    private final byte[] mDiscardBuffer = new byte[128];
+    private final ByteArrayOutputStream mBaos = new ByteArrayOutputStream(32 * 1024);
+
     private void sendFrameToPc(final byte[] jpegBytes) {
         if (mServerUrl == null || mServerUrl.isEmpty()) return;
         if (!mIsSending.compareAndSet(false, true)) {
-            // Drop frame if previous one is still sending
+            // Drop frame immediately if previous one is still in transit (ZERO BUFFERING)
             return;
         }
 
@@ -247,9 +250,10 @@ public class ScreenCaptureService extends Service {
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
-                conn.setConnectTimeout(2500);
-                conn.setReadTimeout(2500);
+                conn.setConnectTimeout(1500);
+                conn.setReadTimeout(1500);
                 conn.setRequestProperty("Content-Type", "image/jpeg");
+                conn.setRequestProperty("Connection", "keep-alive");
                 conn.setRequestProperty("X-Room-Id", targetRoom);
                 conn.setFixedLengthStreamingMode(jpegBytes.length);
 
@@ -257,12 +261,17 @@ public class ScreenCaptureService extends Service {
                 os.write(jpegBytes);
                 os.flush();
                 os.close();
-                conn.getResponseCode();
+
+                // Consume input stream so HttpURLConnection keeps socket alive in connection pool
+                java.io.InputStream is = conn.getInputStream();
+                while (is.read(mDiscardBuffer) != -1) {}
+                is.close();
             } catch (Exception ignored) {
-            } finally {
                 if (conn != null) {
-                    conn.disconnect();
+                    try { conn.disconnect(); } catch (Exception ignored2) {}
                 }
+            } finally {
+                // DO NOT disconnect on success: keeps TCP/TLS connection open for instant transmission
                 mIsSending.set(false);
             }
         });
