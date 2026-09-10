@@ -223,13 +223,6 @@ function broadcastToMobile(roomId, data, excludeWs = null) {
 // Native Screen Frame Streaming API from Android App (raw binary JPEG)
 app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }), (req, res) => {
   const roomId = req.headers['x-room-id'];
-  if (roomId && rooms.has(roomId)) {
-    const room = rooms.get(roomId);
-    if (room.screenShareDismissed) {
-      res.setHeader('X-Action', 'stop');
-      return res.status(410).send('STOP');
-    }
-  }
   if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
     let sent = false;
     if (roomId && rooms.has(roomId)) {
@@ -255,17 +248,11 @@ app.post('/api/phone-screen-frame', express.raw({ type: '*/*', limit: '10mb' }),
   res.status(200).send('OK');
 });
 
-// Stop Screen Share notification from Android Service or PC
+// Stop Screen Share notification from Android Service
 app.post('/api/phone-screen-stop', express.json(), (req, res) => {
   const roomId = req.headers['x-room-id'] || (req.body && req.body.roomId);
-  if (roomId && rooms.has(roomId)) {
-    const room = rooms.get(roomId);
-    room.screenShareDismissed = true;
-    room.screenShareActive = false;
-  }
   if (roomId) {
-    broadcastToPc(roomId, { type: 'phone_screen_stop', role: req.body && req.body.role ? req.body.role : 'phone', roomId });
-    broadcastToMobile(roomId, { type: 'phone_screen_stop', role: req.body && req.body.role ? req.body.role : 'pc', roomId });
+    broadcastToPc(roomId, { type: 'phone_screen_stop', role: 'phone', roomId });
   } else {
     broadcast({ type: 'phone_screen_stop', role: 'phone' });
   }
@@ -672,11 +659,6 @@ wss.on('connection', (ws, req) => {
       // Phone-to-PC Screen Mirroring Signaling
       if (data.type === 'phone_screen_offer') {
         const targetRoom = data.roomId || ws.roomId;
-        if (targetRoom && rooms.has(targetRoom)) {
-          const room = rooms.get(targetRoom);
-          room.screenShareDismissed = false;
-          room.screenShareActive = true;
-        }
         broadcastToPc(targetRoom, data, ws);
         return;
       }
@@ -699,11 +681,6 @@ wss.on('connection', (ws, req) => {
 
       if (data.type === 'phone_screen_stop') {
         const targetRoom = data.roomId || ws.roomId;
-        if (targetRoom && rooms.has(targetRoom)) {
-          const room = rooms.get(targetRoom);
-          room.screenShareDismissed = true;
-          room.screenShareActive = false;
-        }
         if (data.role === 'pc') {
           broadcastToMobile(targetRoom, data, ws);
         } else {

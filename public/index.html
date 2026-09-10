@@ -7,13 +7,13 @@
   <meta name="description" content="Instantly drop files, videos, documents, and images between mobile and PC over local Wi-Fi.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="/css/style.css?v=12">
+  <link rel="stylesheet" href="/css/style.css?v=11">
   <meta name="theme-color" content="#0a0e17">
   <link rel="manifest" href="/manifest.json">
 </head>
@@ -29,17 +29,11 @@
     <!-- Header -->
     <header class="app-header">
       <div class="brand">
-        <img src="/logo-icon.png" alt="V-Share" class="brand-icon-img" style="height: 52px; width: 52px; object-fit: contain; filter: drop-shadow(0 4px 14px rgba(0, 150, 255, 0.45)); transition: transform 0.2s ease;">
+        <img src="/logo-icon.png" alt="V-Share" class="brand-icon-img" style="height: 54px; width: 54px; object-fit: contain; filter: drop-shadow(0 4px 14px rgba(0, 150, 255, 0.45)); transition: transform 0.2s ease;">
       </div>
 
       <div class="header-actions">
-        <div id="connectionStatus" class="status-pill" style="display: inline-flex; align-items: center; gap: 8px;">
-          <div class="circular-gauge" style="width: 22px; height: 22px;">
-            <svg viewBox="0 0 36 36">
-              <circle class="gauge-bg" cx="18" cy="18" r="14" fill="none" stroke-width="3"></circle>
-              <circle class="gauge-fg" cx="18" cy="18" r="14" fill="none" stroke-width="3" stroke="#10b981" stroke-dasharray="88" stroke-dashoffset="0"></circle>
-            </svg>
-          </div>
+        <div id="connectionStatus" class="status-pill">
           <span class="status-dot"></span>
           <span id="statusText">Connections: Ready</span>
         </div>
@@ -113,16 +107,16 @@
           </div>
 
           <!-- Private Pairing Code Display -->
-          <div class="pairing-box" style="margin: 14px 0 16px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 14px 16px; text-align: center; box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-light-muted); margin-bottom: 6px;">
+          <div class="pairing-box" style="margin: 12px 0 14px; background: rgba(0, 150, 255, 0.08); border: 1px dashed rgba(0, 150, 255, 0.35); border-radius: 10px; padding: 10px 14px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 4px;">
               🔒 Private Pairing Code
             </div>
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-              <span id="roomCodeDisplay" style="font-family: monospace; font-size: 24px; font-weight: 800; letter-spacing: 3px; color: #38bdf8; text-shadow: 0 0 16px rgba(56, 189, 248, 0.4);">--- ---</span>
-              <button id="copyRoomCodeBtn" type="button" title="Copy Pairing Code" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; cursor: pointer; font-size: 14px; color: #cbd5e1; padding: 4px 8px; transition: var(--transition);">📋</button>
-              <button id="refreshRoomCodeBtn" type="button" title="Generate New Private Code for this PC" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; cursor: pointer; font-size: 14px; color: #cbd5e1; padding: 4px 8px; transition: var(--transition);">🎲</button>
+              <span id="roomCodeDisplay" style="font-family: monospace; font-size: 22px; font-weight: 800; letter-spacing: 3px; color: #00f2fe;">--- ---</span>
+              <button id="copyRoomCodeBtn" type="button" title="Copy Pairing Code" style="background: none; border: none; cursor: pointer; font-size: 15px; color: #94a3b8; padding: 2px 4px;">📋</button>
+              <button id="refreshRoomCodeBtn" type="button" title="Generate New Private Code for this PC" style="background: none; border: none; cursor: pointer; font-size: 15px; color: #94a3b8; padding: 2px 4px;">🎲</button>
             </div>
-            <div style="font-size: 11.5px; color: #64748b; margin-top: 6px;">
+            <div style="font-size: 11px; color: #64748b; margin-top: 3px;">
               Scan QR or enter this code on your phone
             </div>
           </div>

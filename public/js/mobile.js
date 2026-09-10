@@ -181,25 +181,23 @@ function initMobileApp() {
       if (roomId) {
         mobileRoomCodeText.textContent = roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId;
       } else {
-        mobileRoomCodeText.textContent = '--- ---';
+        mobileRoomCodeText.textContent = 'Not Paired';
       }
     }
 
     if (roomStatusTitle) {
       if (roomId) {
-        roomStatusTitle.textContent = isPaired ? 'Connected' : 'Connecting...';
+        roomStatusTitle.textContent = isPaired ? `🟢 Paired with ${displayName}` : `⏳ Connecting to ${displayName}...`;
       } else {
-        roomStatusTitle.textContent = 'Tap to Pair';
+        roomStatusTitle.textContent = 'Tap to Pair with Your PC';
       }
     }
 
     if (roomStatusSubtitle) {
-      if (isPaired) {
-        roomStatusSubtitle.innerHTML = `Paired with <b>${displayName}</b> &bull; Files save directly to PC Downloads folder in full original quality.`;
-      } else if (roomId) {
-        roomStatusSubtitle.innerHTML = `Connecting to <b>${displayName}</b>... Ensure phone &amp; PC are on the same Wi-Fi.`;
+      if (roomId) {
+        roomStatusSubtitle.innerHTML = `Target PC: <b style="color: #60a5fa;">${displayName}</b> (${roomId.length === 6 ? `${roomId.substring(0, 3)} ${roomId.substring(3)}` : roomId})`;
       } else {
-        roomStatusSubtitle.textContent = 'Scan QR or enter the 6-digit pairing code shown on your PC.';
+        roomStatusSubtitle.textContent = 'Enter the 6-digit code shown on your PC';
       }
     }
 
@@ -231,17 +229,7 @@ function initMobileApp() {
   const mobileScannerContainer = document.getElementById('mobileScannerContainer');
   const mobileScannerVideo = document.getElementById('mobileScannerVideo');
   const mobileScannerCanvas = document.getElementById('mobileScannerCanvas');
-  const mobileSettingsBtn = document.getElementById('mobileSettingsBtn');
-  if (mobileSettingsBtn) {
-    mobileSettingsBtn.addEventListener('click', () => {
-      const bridge = window.AndroidHost || window.AndroidBridge;
-      if (bridge && typeof bridge.openSettings === 'function') {
-        bridge.openSettings();
-      } else if (pairModal) {
-        pairModal.classList.add('active');
-      }
-    });
-  }
+  const mobileScannerFeedback = document.getElementById('mobileScannerFeedback');
 
   let mobileCameraStream = null;
   let mobileScanAnimId = null;
@@ -504,7 +492,20 @@ function initMobileApp() {
     }
   }
 
+  let lastMobileToastMsg = '';
+  let lastMobileToastTime = 0;
   function showToast(message, icon = '⚡') {
+    const now = Date.now();
+    if (lastMobileToastMsg === message && now - lastMobileToastTime < 3000) {
+      return; // Deduplicate toast spam
+    }
+    lastMobileToastMsg = message;
+    lastMobileToastTime = now;
+
+    if (!toastContainer) return;
+    while (toastContainer.children.length >= 3) {
+      toastContainer.removeChild(toastContainer.firstChild);
+    }
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
@@ -667,8 +668,11 @@ function initMobileApp() {
           }
 
           if (msg.type === 'phone_screen_stop') {
+            const wasSharing = isNativeSharingActive || !!phoneScreenStream;
             stopPhoneScreenShare(false);
-            showToast('Screen sharing ended by PC', '🖥️');
+            if (wasSharing) {
+              showToast('Screen sharing ended by PC', '🖥️');
+            }
             return;
           }
 
@@ -834,7 +838,12 @@ function initMobileApp() {
     }
   }
 
+  let isStoppingPhoneShare = false;
   function stopPhoneScreenShare(notifyPc = true) {
+    if (isStoppingPhoneShare) return;
+    isStoppingPhoneShare = true;
+    setTimeout(() => { isStoppingPhoneShare = false; }, 600);
+
     const bridge = window.AndroidHost || window.AndroidBridge;
     if (bridge && typeof bridge.stopScreenCapture === 'function') {
       bridge.stopScreenCapture();

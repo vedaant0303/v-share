@@ -321,30 +321,9 @@ public class ScreenCaptureService extends Service {
             os.flush();
             os.close();
 
-            int responseCode = conn.getResponseCode();
-            String xAction = conn.getHeaderField("X-Action");
-            if (responseCode == 410 || "stop".equalsIgnoreCase(xAction)) {
-                // PC explicitly dismissed/stopped the screen stream! Stop capturing on mobile immediately!
-                if (mHandler != null) {
-                    mHandler.post(this::stopCapture);
-                } else {
-                    stopCapture();
-                }
-                stopSelf();
-                return;
-            }
-
-            if (responseCode >= 200 && responseCode < 300) {
-                InputStream is = conn.getInputStream();
-                while (is.read(mDiscardBuffer) != -1) {}
-                is.close();
-            } else {
-                InputStream es = conn.getErrorStream();
-                if (es != null) {
-                    while (es.read(mDiscardBuffer) != -1) {}
-                    es.close();
-                }
-            }
+            InputStream is = conn.getInputStream();
+            while (is.read(mDiscardBuffer) != -1) {}
+            is.close();
         } catch (Exception ignored) {
             if (conn != null) {
                 try { conn.disconnect(); } catch (Exception ignored2) {}
@@ -352,15 +331,9 @@ public class ScreenCaptureService extends Service {
         }
     }
 
-    private void stopCapture() {
+    private synchronized void stopCapture() {
+        if (!mIsRunning) return;
         mIsRunning = false;
-        try {
-            stopForeground(true);
-            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm != null) {
-                nm.cancel(NOTIFICATION_ID);
-            }
-        } catch (Exception ignored) {}
         if (mVirtualDisplay != null) {
             try { mVirtualDisplay.release(); } catch (Exception ignored) {}
             mVirtualDisplay = null;
