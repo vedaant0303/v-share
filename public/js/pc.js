@@ -1750,20 +1750,42 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Please type or paste some text first!', '⚠️');
         return;
       }
+
+      const payload = {
+        type: 'clipboard_share',
+        text,
+        roomId: currentRoomId,
+        from: 'PC',
+        timestamp: Date.now()
+      };
+
+      // 1. Dispatch via WebSocket if open
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'clipboard_share',
-          text,
-          roomId: currentRoomId,
-          from: 'PC'
-        }));
-        playSuccessChime();
-        showToast('🚀 Sent to phone clipboard!', '📱');
-        if (clipboardModal) clipboardModal.style.display = 'none';
-        pcClipboardInput.value = '';
-      } else {
-        showToast('WebSocket not connected', '⚠️');
+        try {
+          ws.send(JSON.stringify(payload));
+        } catch (e) {}
       }
+
+      // 2. Guaranteed Dual-Channel REST API Dispatch
+      fetch('/api/clipboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, roomId: currentRoomId, from: 'PC' })
+      }).catch(() => {});
+
+      // 3. If connected through remote cloud, also ping local daemon
+      if (location.port !== '4000') {
+        fetch('http://localhost:4000/api/clipboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, roomId: currentRoomId, from: 'PC' })
+        }).catch(() => {});
+      }
+
+      playSuccessChime();
+      showToast('🚀 Sent to phone clipboard!', '📱');
+      if (clipboardModal) clipboardModal.style.display = 'none';
+      pcClipboardInput.value = '';
     });
   }
 

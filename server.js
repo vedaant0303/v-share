@@ -291,6 +291,55 @@ app.post('/api/phone-screen-stop', express.json(), (req, res) => {
   res.status(200).send('OK');
 });
 
+// Cross-Device Clipboard REST Endpoints
+app.post('/api/clipboard', express.json(), (req, res) => {
+  const { text, roomId, from } = req.body;
+  if (!text) return res.status(400).json({ error: 'No text provided' });
+  const fromRole = from || 'PC';
+  const targetRoom = roomId || req.headers['x-room-id'];
+
+  if (fromRole === 'Mobile' && process.platform === 'win32') {
+    try {
+      const clipProc = spawn('clip');
+      clipProc.stdin.write(text);
+      clipProc.stdin.end();
+      const preview = text.length > 40 ? text.substring(0, 37) + '...' : text;
+      showWindowsNotification('📋 Copied from Phone to Windows Clipboard!', `"${preview}"`);
+    } catch (e) {}
+  }
+
+  const clipPayload = {
+    type: 'clipboard_received',
+    text,
+    from: fromRole,
+    roomId: targetRoom,
+    timestamp: Date.now()
+  };
+
+  if (targetRoom) {
+    const r = getOrCreateRoom(targetRoom);
+    r.lastClipboard = clipPayload;
+    broadcastToRoom(targetRoom, clipPayload);
+  } else {
+    broadcast(clipPayload);
+  }
+
+  // Forward across Cloud Bridge to Render cloud
+  if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+    activeCloudBridgeWs.send(JSON.stringify(clipPayload));
+  }
+
+  res.json({ success: true, text });
+});
+
+app.get('/api/clipboard', (req, res) => {
+  const roomId = req.query.roomId || req.headers['x-room-id'];
+  if (roomId && rooms.has(roomId) && rooms.get(roomId).lastClipboard) {
+    return res.json({ success: true, clipboard: rooms.get(roomId).lastClipboard });
+  }
+  res.json({ success: false, clipboard: null });
+});
+
 // Active Cloud Bridge WebSocket instance
 let activeCloudBridgeWs = null;
 
@@ -590,34 +639,42 @@ wss.on('connection', (ws, req) => {
         return;
       }
 
-      if (data.type === 'clipboard_share') {
+      if (data.type === 'clipboard_share' || data.type === 'clipboard_received') {
         const text = String(data.text || '');
-        if (text && process.platform === 'win32') {
+        const targetRoom = data.roomId || ws.roomId;
+        const fromRole = data.from || (isMobile ? 'Mobile' : 'PC');
+
+        if (fromRole === 'Mobile' && text && process.platform === 'win32') {
           try {
             const clipProc = spawn('clip');
             clipProc.stdin.write(text);
             clipProc.stdin.end();
             const preview = text.length > 40 ? text.substring(0, 37) + '...' : text;
-            showWindowsNotification('📋 Copied to Windows Clipboard!', `"${preview}"`);
+            showWindowsNotification('📋 Copied from Phone to Windows Clipboard!', `"${preview}"`);
           } catch (e) {}
         }
-        if (ws.roomId) {
-          broadcastToRoom(ws.roomId, {
-            type: 'clipboard_received',
-            text: text,
-            from: isMobile ? 'Mobile' : 'PC',
-            roomId: ws.roomId,
-            timestamp: Date.now()
-          }, ws);
+
+        const clipPayload = {
+          type: 'clipboard_received',
+          text: text,
+          from: fromRole,
+          roomId: targetRoom,
+          timestamp: Date.now()
+        };
+
+        if (targetRoom) {
+          const r = getOrCreateRoom(targetRoom);
+          r.lastClipboard = clipPayload;
+          broadcastToRoom(targetRoom, clipPayload, ws);
         } else {
-          // Broadcast clipboard text to all other clients
-          broadcast({
-            type: 'clipboard_received',
-            text: text,
-            from: isMobile ? 'Mobile' : 'PC',
-            timestamp: Date.now()
-          });
+          broadcast(clipPayload);
         }
+
+        // Forward to Cloud Bridge so Render relays it to the phone
+        if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN && activeCloudBridgeWs !== ws) {
+          activeCloudBridgeWs.send(JSON.stringify(clipPayload));
+        }
+        return;
       }
 
       // Remote Desktop / OS Sharing Handlers (Unattended + WebRTC)
@@ -1733,7 +1790,8 @@ server.listen(PORT, '0.0.0.0', () => {
 
           if (msg.type === 'clipboard_received' || msg.type === 'clipboard_share') {
             const text = String(msg.text || '');
-            if (text && process.platform === 'win32') {
+            const fromRole = msg.from || 'Mobile';
+            if (fromRole !== 'PC' && text && process.platform === 'win32') {
               try {
                 const clipProc = spawn('clip');
                 clipProc.stdin.write(text);
@@ -1745,7 +1803,7 @@ server.listen(PORT, '0.0.0.0', () => {
             broadcast({
               type: 'clipboard_received',
               text: text,
-              from: 'Mobile',
+              from: fromRole,
               timestamp: Date.now()
             });
             return;

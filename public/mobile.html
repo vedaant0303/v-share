@@ -615,11 +615,30 @@
 
     <!-- Quick Text / Link Transfer -->
     <div id="textSyncSection" class="text-sync-card" style="display: none;">
-      <h3 style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 10px;">Send Text / Link to PC</h3>
-      <textarea id="mobileTextInput" rows="3" placeholder="Type or paste link/text here..."></textarea>
-      <button id="mobileSendTextBtn" class="btn-send-text">
-        Send to PC Clipboard
-      </button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="font-size: 14px; font-weight: 700; color: #ffffff; margin: 0; display: flex; align-items: center; gap: 6px;">
+          <span>📋</span>
+          <span>Cross-Device Clipboard</span>
+        </h3>
+        <button id="closeTextSyncBtn" type="button" style="background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; line-height: 1;">&times;</button>
+      </div>
+      <textarea id="mobileTextInput" rows="3" placeholder="Type or paste text, note, or link here to send or view..."></textarea>
+      <div style="display: flex; gap: 8px; margin-top: 10px;">
+        <button id="mobilePasteBtn" type="button" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 9px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+          📋 Paste
+        </button>
+        <button id="mobileCopyBtn" type="button" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 9px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+          📑 Copy
+        </button>
+        <button id="mobileSendTextBtn" class="btn-send-text" style="margin-top: 0; flex: 1;">
+          🚀 Send to PC
+        </button>
+      </div>
+      <div id="mobileOpenLinkRow" style="display: none; margin-top: 8px;">
+        <a id="mobileOpenLinkBtn" href="#" target="_blank" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; text-decoration: none; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 700;">
+          🔗 Open Link in Browser ↗
+        </a>
+      </div>
     </div>
 
     <!-- Received from PC Section -->
@@ -912,6 +931,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/mobile.js?v=30"></script>
+  <script src="/js/mobile.js?v=31"></script>
 </body>
 </html>

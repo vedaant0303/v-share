@@ -637,25 +637,8 @@ function initMobileApp() {
               }
             }
           }
-          if (msg.type === 'clipboard_received' && msg.from === 'PC') {
-            playSuccessChime();
-            const text = msg.text || '';
-            try {
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).catch(() => {});
-              }
-            } catch (e) {}
-            const preview = text.length > 35 ? text.substring(0, 32) + '...' : text;
-            showToast(`📋 PC: "${preview}" (Copied!)`, '💻');
-
-            const textSection = document.getElementById('textSyncSection');
-            const textInput = document.getElementById('mobileTextInput');
-            if (textInput) {
-              textInput.value = text;
-            }
-            if (textSection && textSection.style.display === 'none') {
-              textSection.style.display = 'block';
-            }
+          if (msg.type === 'clipboard_received' || msg.type === 'clipboard_share') {
+            handleIncomingClipboard(msg);
           }
           if (msg.type === 'beam_claimed') {
             if (msg.token === activeBeamToken || activeBeamToken) {
@@ -1552,22 +1535,181 @@ function initMobileApp() {
     });
   }
 
-  // Send text to PC
-  document.getElementById('mobileSendTextBtn').addEventListener('click', () => {
-    const input = document.getElementById('mobileTextInput');
-    const text = input.value.trim();
+  // --- Cross-Device Clipboard Synchronization ---
+  let lastReceivedClipboardTimestamp = 0;
 
-    if (!text) return;
-
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'clipboard_share', text }));
-      input.value = '';
-      playSuccessChime();
-      showToast('Delivered to PC screen!', '💬');
+  function updateOpenLinkButton(text) {
+    const linkRow = document.getElementById('mobileOpenLinkRow');
+    const linkBtn = document.getElementById('mobileOpenLinkBtn');
+    if (!linkRow || !linkBtn) return;
+    const urlMatch = (text || '').trim().match(/https?:\/\/[^\s]+/i);
+    if (urlMatch) {
+      linkBtn.href = urlMatch[0];
+      linkBtn.textContent = `🔗 Open Link (${urlMatch[0].length > 30 ? urlMatch[0].substring(0, 27) + '...' : urlMatch[0]}) ↗`;
+      linkRow.style.display = 'block';
     } else {
-      showToast('Connecting to PC...', '⏳');
+      linkRow.style.display = 'none';
+    }
+  }
+
+  function handleIncomingClipboard(payload) {
+    if (!payload || !payload.text) return;
+    if (payload.from === 'Mobile') return; // Do not echo mobile's own sent messages
+    if (payload.timestamp && payload.timestamp <= lastReceivedClipboardTimestamp) {
+      return; // Already processed this clipboard event
+    }
+    lastReceivedClipboardTimestamp = payload.timestamp || Date.now();
+
+    playSuccessChime();
+    const text = String(payload.text || '');
+
+    // Copy directly into phone clipboard if browser allows
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+    } catch (e) {}
+
+    const preview = text.length > 35 ? text.substring(0, 32) + '...' : text;
+    showToast(`📋 From PC: "${preview}" (Copied!)`, '💻');
+
+    const textSection = document.getElementById('textSyncSection');
+    const textInput = document.getElementById('mobileTextInput');
+    if (textInput) {
+      textInput.value = text;
+    }
+    updateOpenLinkButton(text);
+
+    if (textSection) {
+      textSection.style.display = 'block';
+      textSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  // Mobile Text Sync Event Listeners
+  const mobileTextInput = document.getElementById('mobileTextInput');
+  const mobileSendTextBtn = document.getElementById('mobileSendTextBtn');
+  const mobilePasteBtn = document.getElementById('mobilePasteBtn');
+  const mobileCopyBtn = document.getElementById('mobileCopyBtn');
+  const closeTextSyncBtn = document.getElementById('closeTextSyncBtn');
+
+  if (mobileTextInput) {
+    mobileTextInput.addEventListener('input', () => {
+      updateOpenLinkButton(mobileTextInput.value);
+    });
+  }
+
+  if (closeTextSyncBtn) {
+    closeTextSyncBtn.addEventListener('click', () => {
+      const textSection = document.getElementById('textSyncSection');
+      if (textSection) textSection.style.display = 'none';
+    });
+  }
+
+  if (mobilePasteBtn && mobileTextInput) {
+    mobilePasteBtn.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          mobileTextInput.value = text;
+          updateOpenLinkButton(text);
+          showToast('Pasted from phone clipboard!', '📋');
+        } else {
+          showToast('Clipboard is empty', 'ℹ️');
+        }
+      } catch (err) {
+        mobileTextInput.focus();
+        showToast('Tap inside box & press Paste', 'ℹ️');
+      }
+    });
+  }
+
+  if (mobileCopyBtn && mobileTextInput) {
+    mobileCopyBtn.addEventListener('click', () => {
+      const text = (mobileTextInput.value || '').trim();
+      if (!text) {
+        showToast('No text to copy', 'ℹ️');
+        return;
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('Copied to phone clipboard!', '📑');
+          }).catch(() => {
+            showToast('Copied text!', '📑');
+          });
+        }
+      } catch (e) {
+        showToast('Copied text!', '📑');
+      }
+    });
+  }
+
+  if (mobileSendTextBtn && mobileTextInput) {
+    mobileSendTextBtn.addEventListener('click', () => {
+      const text = mobileTextInput.value.trim();
+      if (!text) {
+        showToast('Please type or paste text to send', '⚠️');
+        return;
+      }
+
+      const payload = {
+        type: 'clipboard_share',
+        text,
+        roomId: currentRoomId,
+        from: 'Mobile',
+        timestamp: Date.now()
+      };
+
+      // 1. WebSocket send if open
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify(payload));
+        } catch (e) {}
+      }
+
+      // 2. Dual-Channel REST API post to current host
+      fetch('/api/clipboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, roomId: currentRoomId, from: 'Mobile' })
+      }).catch(() => {});
+
+      // 3. Direct Wi-Fi PC route if detected
+      if (window.detectedLocalPcUrl) {
+        fetch(`${window.detectedLocalPcUrl}/api/clipboard`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, roomId: currentRoomId, from: 'Mobile' })
+        }).catch(() => {});
+      }
+
+      playSuccessChime();
+      showToast('🚀 Sent to PC clipboard!', '💻');
+    });
+  }
+
+  // Zero-Loss Background Clipboard Polling & Sync Recovery
+  async function pollClipboardSync() {
+    if (!currentRoomId) return;
+    try {
+      const res = await fetch(`/api/clipboard?roomId=${encodeURIComponent(currentRoomId)}`, { cache: 'no-cache' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.clipboard) {
+          handleIncomingClipboard(data.clipboard);
+        }
+      }
+    } catch (e) {}
+  }
+
+  setInterval(pollClipboardSync, 3000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      pollClipboardSync();
     }
   });
+  window.addEventListener('focus', pollClipboardSync);
 
   // --- PWA Installation Setup ---
   if ('serviceWorker' in navigator) {
