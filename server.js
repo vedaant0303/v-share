@@ -70,6 +70,18 @@ try {
 // Temporary store for Camera Beam transfers
 const stagedBeams = new Map();
 
+// CORS & Private Network Access (enables HTTPS web apps and remote browsers to communicate with local Windows PC)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-room-id, x-sender');
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
 // Parse JSON and urlencoded for text messages
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -96,6 +108,38 @@ app.get('/api/remote/status', (req, res) => {
     screenWidth,
     screenHeight
   });
+});
+
+// Direct Native Remote Input API (called from PC browser or WebRTC DataChannel bridge)
+app.post('/api/remote-input', (req, res) => {
+  try {
+    const payload = req.body;
+    if (payload && payload.action) {
+      handleRemoteInputEvent(payload);
+      return res.json({ success: true, action: payload.action });
+    }
+    res.status(400).json({ error: 'Missing action in remote_input' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sync Cloud Bridge with PC browser active room
+let activeCloudRoomId = null;
+app.post('/api/sync-cloud-room', (req, res) => {
+  const roomId = req.body && req.body.roomId ? String(req.body.roomId).trim() : null;
+  if (roomId) {
+    activeCloudRoomId = roomId;
+    if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+      activeCloudBridgeWs.send(JSON.stringify({
+        type: 'join_room',
+        roomId: roomId,
+        role: 'pc'
+      }));
+      console.log(`🔗 [Cloud Bridge] Dynamically synced and joined room ${roomId}`);
+    }
+  }
+  res.json({ success: true, roomId: activeCloudRoomId });
 });
 
 // Store connected clients for WebSocket

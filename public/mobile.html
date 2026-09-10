@@ -543,6 +543,11 @@
       z-index: 10003;
       animation: touchPop 0.35s ease-out forwards;
     }
+    @keyframes touchPop {
+      0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+      50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+      100% { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
+    }
     .remote-control-dock {
       position: absolute;
       bottom: 12px;
@@ -1130,6 +1135,12 @@
     <!-- Auto-Hint for Portrait Orientation -->
     <div class="landscape-auto-hint" style="display: none; position: absolute; top: 14px; left: 14px; z-index: 10004; background: rgba(15,23,42,0.75); color: #38bdf8; font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 20px; backdrop-filter: blur(8px); border: 1px solid rgba(56,189,248,0.3); pointer-events: none;">
       🔄 Rotate phone to landscape for widescreen
+    </div>
+
+    <!-- Connection & Remote Control State Pill Badge -->
+    <div id="remoteControlStatusBadge" style="position: absolute; top: 14px; left: 14px; z-index: 10005; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7; padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 700; backdrop-filter: blur(8px); display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); pointer-events: none;">
+      <span id="remoteStatusBadgeDot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+      <span id="remoteStatusBadgeText">Remote Control Active</span>
     </div>
 
     <!-- Edge-to-Edge Video Canvas Container -->

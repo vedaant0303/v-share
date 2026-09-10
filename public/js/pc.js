@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `${currentRoomId.substring(0, 3)} ${currentRoomId.substring(3)}`
         : currentRoomId;
     }
+    syncCloudRoomWithLocalDaemon(currentRoomId);
   }
 
   if (currentRoomId) {
@@ -1047,6 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
           roomId: currentRoomId,
           role: 'pc'
         }));
+        syncCloudRoomWithLocalDaemon(currentRoomId);
       }
     };
 
@@ -1149,6 +1151,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (msg.type === 'remote_stop') {
           stopScreenShareHost();
+          return;
+        }
+
+        // Forward remote input events from phone to local Windows input daemon
+        if (msg.type === 'remote_input') {
+          forwardRemoteInputToLocalPc(msg);
           return;
         }
 
@@ -1347,6 +1355,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- WebRTC Screen Sharing & Remote Control Host (PC) ---
   let pcScreenStream = null;
   let pcPeerConnection = null;
+  let pcControlDataChannel = null;
   const pcRemoteScreenBtn = document.getElementById('pcRemoteScreenBtn');
   const pcRemoteActiveBanner = document.getElementById('pcRemoteActiveBanner');
   const stopPcRemoteBtn = document.getElementById('stopPcRemoteBtn');
@@ -1359,6 +1368,57 @@ document.addEventListener('DOMContentLoaded', () => {
       { urls: 'stun:stun2.l.google.com:19302' }
     ]
   };
+
+  // Forward remote input from Mobile directly to local Windows OS daemon
+  function forwardRemoteInputToLocalPc(payload) {
+    if (!payload || !payload.action) return;
+    fetch('http://localhost:4000/api/remote-input', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => {
+      fetch('http://127.0.0.1:4000/api/remote-input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    });
+  }
+
+  // Ensure local Windows background service joins the same room code as PC browser
+  function syncCloudRoomWithLocalDaemon(roomId) {
+    if (!roomId) return;
+    fetch('http://localhost:4000/api/sync-cloud-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: String(roomId).trim() })
+    }).catch(() => {
+      fetch('http://127.0.0.1:4000/api/sync-cloud-room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: String(roomId).trim() })
+      }).catch(() => {});
+    });
+  }
+
+  function setupPcDataChannel(channel) {
+    if (!channel) return;
+    pcControlDataChannel = channel;
+    channel.onopen = () => {
+      console.log('⚡ [WebRTC DataChannel] Direct P2P Remote Control active on PC!');
+    };
+    channel.onmessage = (event) => {
+      try {
+        const inputData = JSON.parse(event.data);
+        forwardRemoteInputToLocalPc(inputData);
+      } catch (e) {
+        console.warn('DataChannel parse error:', e);
+      }
+    };
+    channel.onclose = () => {
+      console.log('⚡ [WebRTC DataChannel] Closed on PC');
+    };
+  }
 
   async function startScreenShareHost(autoPrompt = false) {
     if (pcScreenStream) {
@@ -1394,6 +1454,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       showToast('🖥️ Screen sharing active! Connected phone can now control this PC.', '🟢');
 
+      // Sync active room with local background daemon
+      if (currentRoomId) {
+        syncCloudRoomWithLocalDaemon(currentRoomId);
+      }
+
       // Setup WebRTC connection with Mobile
       setupPcPeerConnection();
     } catch (err) {
@@ -1410,6 +1475,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     pcPeerConnection = new RTCPeerConnection(rtcConfig);
+
+    // Setup direct P2P DataChannel for sub-5ms touch control
+    try {
+      const channel = pcPeerConnection.createDataChannel('remote_control', {
+        ordered: false,
+        maxRetransmits: 0
+      });
+      setupPcDataChannel(channel);
+    } catch (e) {
+      console.warn('Could not create DataChannel on PC:', e);
+    }
+
+    pcPeerConnection.ondatachannel = (event) => {
+      if (event.channel && event.channel.label === 'remote_control') {
+        setupPcDataChannel(event.channel);
+      }
+    };
 
     pcScreenStream.getTracks().forEach(track => {
       pcPeerConnection.addTrack(track, pcScreenStream);
@@ -1448,6 +1530,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pcScreenStream) {
       pcScreenStream.getTracks().forEach(track => track.stop());
       pcScreenStream = null;
+    }
+    if (pcControlDataChannel) {
+      try { pcControlDataChannel.close(); } catch (e) {}
+      pcControlDataChannel = null;
     }
     if (pcPeerConnection) {
       try { pcPeerConnection.close(); } catch (e) {}

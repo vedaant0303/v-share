@@ -1400,13 +1400,69 @@ function initMobileApp() {
     ]
   };
 
+  let mobileControlDataChannel = null;
+
+  function updateRemoteControlStatus(isActive) {
+    const badge = document.getElementById('remoteControlStatusBadge');
+    const dot = document.getElementById('remoteStatusBadgeDot');
+    const text = document.getElementById('remoteStatusBadgeText');
+    if (!badge || !dot || !text) return;
+
+    if (isActive) {
+      badge.style.background = 'rgba(16, 185, 129, 0.2)';
+      badge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+      badge.style.color = '#6ee7b7';
+      dot.style.background = '#10b981';
+      dot.style.boxShadow = '0 0 8px #10b981';
+      text.textContent = '🟢 Remote Control Active';
+    } else {
+      badge.style.background = 'rgba(245, 158, 11, 0.2)';
+      badge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+      badge.style.color = '#fcd34d';
+      dot.style.background = '#f59e0b';
+      dot.style.boxShadow = '0 0 8px #f59e0b';
+      text.textContent = '👁️ View Only';
+    }
+  }
+
+  function setupMobileDataChannel(channel) {
+    if (!channel) return;
+    mobileControlDataChannel = channel;
+    channel.onopen = () => {
+      console.log('⚡ [WebRTC DataChannel] Direct P2P Remote Control active!');
+      updateRemoteControlStatus(true);
+    };
+    channel.onclose = () => {
+      console.log('⚡ [WebRTC DataChannel] Closed');
+      if (remoteControlActive) updateRemoteControlStatus(true); // WebSocket fallback
+    };
+    channel.onerror = (e) => {
+      console.warn('DataChannel error on mobile:', e);
+    };
+  }
+
   function sendRemoteInput(payload) {
+    if (!remoteControlActive) return;
+
+    const data = {
+      type: 'remote_input',
+      roomId: currentRoomId,
+      ...payload
+    };
+
+    // Priority 1: Direct P2P WebRTC DataChannel (sub-5ms zero-cloud latency)
+    if (mobileControlDataChannel && mobileControlDataChannel.readyState === 'open') {
+      try {
+        mobileControlDataChannel.send(JSON.stringify(data));
+        return;
+      } catch (e) {
+        console.warn('DataChannel send error, falling back to WebSocket:', e);
+      }
+    }
+
+    // Priority 2: WebSocket fallback
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'remote_input',
-        roomId: currentRoomId,
-        ...payload
-      }));
+      ws.send(JSON.stringify(data));
     }
   }
 
@@ -1476,10 +1532,15 @@ function initMobileApp() {
         remoteScreenStream.getTracks().forEach(t => t.stop());
         remoteScreenStream = null;
       }
+      if (mobileControlDataChannel) {
+        try { mobileControlDataChannel.close(); } catch (e) {}
+        mobileControlDataChannel = null;
+      }
       if (mobilePeerConnection) {
         try { mobilePeerConnection.close(); } catch (e) {}
         mobilePeerConnection = null;
       }
+      updateRemoteControlStatus(false);
       if (remoteScreenVideo) remoteScreenVideo.srcObject = null;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'unattended_remote_stop', roomId: currentRoomId, role: 'mobile' }));
@@ -1519,6 +1580,13 @@ function initMobileApp() {
       }
 
       mobilePeerConnection = new RTCPeerConnection(rtcConfig);
+
+      // Listen for direct P2P DataChannel opened by PC
+      mobilePeerConnection.ondatachannel = (event) => {
+        if (event.channel && event.channel.label === 'remote_control') {
+          setupMobileDataChannel(event.channel);
+        }
+      };
 
       mobilePeerConnection.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
@@ -1565,6 +1633,7 @@ function initMobileApp() {
               if (forceBtn) forceBtn.style.display = 'none';
               const guide = document.getElementById('remoteStreamGuideOverlay');
               if (guide) guide.style.display = 'none';
+              updateRemoteControlStatus(true);
             };
           }
           const guide = document.getElementById('remoteStreamGuideOverlay');
@@ -1572,6 +1641,7 @@ function initMobileApp() {
           if (remoteWaitingCard) remoteWaitingCard.style.display = 'none';
           const lockedNotice = document.getElementById('remoteLockedNotice');
           if (lockedNotice) lockedNotice.style.display = 'none';
+          updateRemoteControlStatus(true);
           showToast('🟢 Fullscreen PC Touchscreen Active!', '🖥️');
         }
       };
@@ -1622,10 +1692,15 @@ function initMobileApp() {
       if (requestRemoteStartBtn) requestRemoteStartBtn.textContent = '🚀 Reconnect Fullscreen PC';
     }
     if (remoteScreenVideo) remoteScreenVideo.srcObject = null;
+    if (mobileControlDataChannel) {
+      try { mobileControlDataChannel.close(); } catch (e) {}
+      mobileControlDataChannel = null;
+    }
     if (mobilePeerConnection) {
       try { mobilePeerConnection.close(); } catch (e) {}
       mobilePeerConnection = null;
     }
+    updateRemoteControlStatus(false);
   }
 
   // --- Accurate Touchscreen Mapping Helper ---
@@ -1681,12 +1756,15 @@ function initMobileApp() {
 
   function showTouchRipple(clientX, clientY) {
     if (!remoteTouchSurface) return;
+    const rect = remoteTouchSurface.getBoundingClientRect();
     const ripple = document.createElement('div');
     ripple.className = 'touch-ripple';
-    ripple.style.left = `${clientX}px`;
-    ripple.style.top = `${clientY}px`;
+    ripple.style.left = `${clientX - rect.left}px`;
+    ripple.style.top = `${clientY - rect.top}px`;
     remoteTouchSurface.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 400);
+    setTimeout(() => {
+      try { ripple.remove(); } catch (e) {}
+    }, 400);
   }
 
   // --- Direct Touchscreen Interaction Logic ---
@@ -1809,9 +1887,11 @@ function initMobileApp() {
 
           if (isDouble) {
             sendRemoteInput({ action: 'click', button: 'double', x: coords.x, y: coords.y });
+            showTouchRipple(lastTouchX, lastTouchY);
             lastTapTime = 0;
           } else {
             sendRemoteInput({ action: 'click', button: 'left', x: coords.x, y: coords.y });
+            showTouchRipple(lastTouchX, lastTouchY);
             lastTapTime = now;
             lastTapX = lastTouchX;
             lastTapY = lastTouchY;
