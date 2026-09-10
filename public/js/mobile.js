@@ -1431,6 +1431,11 @@ function initMobileApp() {
       remoteControlActive = true;
       primeRemoteVideoPlayback();
 
+      const guide = document.getElementById('remoteStreamGuideOverlay');
+      if (guide && (!remoteScreenVideo || !remoteScreenVideo.videoWidth)) {
+        guide.style.display = 'flex';
+      }
+
       // Auto-switch to landscape mode in Android Native App & Web Browser
       if (window.AndroidHost && window.AndroidHost.setLandscape) {
         window.AndroidHost.setLandscape(true);
@@ -1533,18 +1538,37 @@ function initMobileApp() {
                 if (p !== undefined) {
                   p.then(() => {
                     console.log('✅ Remote video playing smoothly');
+                    const forceBtn = document.getElementById('remoteForcePlayBtn');
+                    if (forceBtn) forceBtn.style.display = 'none';
                   }).catch(e => {
                     console.warn('Play attempt notice:', e);
+                    const forceBtn = document.getElementById('remoteForcePlayBtn');
+                    if (forceBtn) forceBtn.style.display = 'flex';
                   });
                 }
+              } else {
+                const forceBtn = document.getElementById('remoteForcePlayBtn');
+                if (forceBtn) forceBtn.style.display = 'none';
               }
+              const guide = document.getElementById('remoteStreamGuideOverlay');
+              if (guide) guide.style.display = 'none';
+              const waiting = document.getElementById('remoteWaitingCard');
+              if (waiting) waiting.style.display = 'none';
             };
 
             playStream();
             remoteScreenVideo.onloadedmetadata = playStream;
             remoteScreenVideo.oncanplay = playStream;
             remoteScreenVideo.onloadeddata = playStream;
+            remoteScreenVideo.onplaying = () => {
+              const forceBtn = document.getElementById('remoteForcePlayBtn');
+              if (forceBtn) forceBtn.style.display = 'none';
+              const guide = document.getElementById('remoteStreamGuideOverlay');
+              if (guide) guide.style.display = 'none';
+            };
           }
+          const guide = document.getElementById('remoteStreamGuideOverlay');
+          if (guide) guide.style.display = 'none';
           if (remoteWaitingCard) remoteWaitingCard.style.display = 'none';
           const lockedNotice = document.getElementById('remoteLockedNotice');
           if (lockedNotice) lockedNotice.style.display = 'none';
@@ -1582,8 +1606,10 @@ function initMobileApp() {
     const screenImg = document.getElementById('remoteScreenImg');
     const canvas = document.getElementById('remoteScreenCanvas');
     const lockedNotice = document.getElementById('remoteLockedNotice');
+    const guide = document.getElementById('remoteStreamGuideOverlay');
     if (screenImg) screenImg.style.display = 'none';
     if (lockedNotice) lockedNotice.style.display = 'none';
+    if (guide) guide.style.display = 'flex';
     if (canvas) {
       canvas.style.display = 'none';
       const ctx = canvas.getContext('2d');
@@ -1680,16 +1706,20 @@ function initMobileApp() {
 
   if (remoteTouchSurface) {
     remoteTouchSurface.addEventListener('touchstart', (e) => {
+      // Immediate video unpause attempt before event suppression
+      if (remoteScreenVideo && (remoteScreenVideo.paused || remoteScreenVideo.ended)) {
+        remoteScreenVideo.muted = true;
+        remoteScreenVideo.defaultMuted = true;
+        remoteScreenVideo.play().then(() => {
+          const forceBtn = document.getElementById('remoteForcePlayBtn');
+          if (forceBtn) forceBtn.style.display = 'none';
+        }).catch(() => {});
+      }
+
       e.preventDefault();
       touchStartTime = Date.now();
       isDragging = false;
       isLongPressTriggered = false;
-
-      // Resume video playback if browser autoplay held it
-      if (remoteScreenVideo && (remoteScreenVideo.paused || remoteScreenVideo.ended)) {
-        remoteScreenVideo.muted = true;
-        remoteScreenVideo.play().catch(() => {});
-      }
 
       const count = e.touches.length;
 
@@ -1905,6 +1935,42 @@ function initMobileApp() {
       sendRemoteInput({ action: 'key', key: '{BACKSPACE}' });
     });
   }
+
+  const reRequestScreenBtn = document.getElementById('reRequestScreenBtn');
+  if (reRequestScreenBtn) {
+    reRequestScreenBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      requestRemoteStart();
+      showToast('Alerted PC! Click Share Screen on your PC browser.', '🖥️');
+    });
+  }
+
+  const forcePlayBtn = document.getElementById('remoteForcePlayBtn');
+  if (forcePlayBtn) {
+    forcePlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (remoteScreenVideo) {
+        remoteScreenVideo.muted = true;
+        remoteScreenVideo.defaultMuted = true;
+        remoteScreenVideo.play().then(() => {
+          forcePlayBtn.style.display = 'none';
+        }).catch(err => console.warn('Force play err:', err));
+      }
+    });
+  }
+
+  // Global passive gesture to wake up WebRTC video stream on mobile browsers
+  ['click', 'touchend', 'pointerup'].forEach(evtName => {
+    window.addEventListener(evtName, () => {
+      if (remoteControlActive && remoteScreenVideo && remoteScreenVideo.paused && remoteScreenVideo.srcObject) {
+        remoteScreenVideo.muted = true;
+        remoteScreenVideo.defaultMuted = true;
+        remoteScreenVideo.play().then(() => {
+          if (forcePlayBtn) forcePlayBtn.style.display = 'none';
+        }).catch(() => {});
+      }
+    }, { passive: true });
+  });
 
   // Initial render of received files and PC file count
   renderDeviceChips();

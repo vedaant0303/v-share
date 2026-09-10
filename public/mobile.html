@@ -1138,8 +1138,31 @@
       <img id="remoteScreenImg" class="remote-screen-img" alt="PC Screen" style="display: none;" />
       <canvas id="remoteScreenCanvas" class="remote-screen-canvas" style="display: none;"></canvas>
       <div id="remoteTouchSurface" class="remote-touch-surface"></div>
+      
+      <!-- Direct Tap-to-Play Button (resolves Android WebView / Chrome autoplay policy) -->
+      <button id="remoteForcePlayBtn" type="button" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10005; background: linear-gradient(135deg, #10b981 0%, #2563eb 100%); color: #fff; border: 2px solid rgba(255,255,255,0.9); font-size: 15px; font-weight: 800; padding: 14px 28px; border-radius: 40px; cursor: pointer; box-shadow: 0 8px 32px rgba(0,0,0,0.7); align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">▶</span>
+        <span>Tap to View Live PC Screen</span>
+      </button>
+
       <div id="remoteLockedNotice" style="display: none; position: absolute; top: 60px; left: 50%; transform: translateX(-50%); z-index: 10006; background: rgba(239, 68, 68, 0.9); color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; box-shadow: 0 4px 16px rgba(0,0,0,0.4); text-align: center; max-width: 90%; backdrop-filter: blur(8px); pointer-events: none;">
         🔒 PC is locked or display asleep. Unlock PC to view screen.
+      </div>
+
+      <!-- Interactive Guidance Overlay (shown when PC screen stream is pending) -->
+      <div id="remoteStreamGuideOverlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10003; background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(168, 85, 247, 0.5); backdrop-filter: blur(14px); border-radius: 16px; padding: 14px 22px; color: #fff; max-width: 92%; width: 440px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.65);">
+        <div style="font-size: 14.5px; font-weight: 700; color: #c084fc; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🖥️</span> <span>How to See Your PC Screen</span>
+        </div>
+        <div style="font-size: 12px; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px; text-align: left;">
+          1. Make sure your PC is awake and unlocked.<br>
+          2. Open <b>http://localhost:4000</b> on your PC in Chrome/Edge.<br>
+          3. Click <b>"🖥️ Remote Control"</b> &rarr; select <b>"Entire screen"</b> &rarr; <b>Share</b>.<br>
+          <span style="color: #38bdf8;">Your PC screen will instantly appear here with full touch control!</span>
+        </div>
+        <button id="reRequestScreenBtn" type="button" style="background: linear-gradient(135deg, #a855f7, #2563eb); color: #fff; border: none; font-size: 12.5px; font-weight: 700; padding: 8px 20px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4);">
+          🔔 Open / Ping PC Dashboard
+        </button>
       </div>
 
       <!-- noVNC-Style Mobile Control Dock at the Bottom -->

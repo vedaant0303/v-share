@@ -47,6 +47,17 @@ function getPresetPaths() {
   };
 }
 
+// Native Windows Notification Helper
+function showWindowsNotification(title, message) {
+  if (process.platform !== 'win32') return;
+  const script = path.join(__dirname, 'notify.ps1');
+  if (fs.existsSync(script)) {
+    const cleanTitle = (title || 'V-Share').replace(/["`$]/g, '');
+    const cleanMsg = (message || '').replace(/["`$]/g, '');
+    exec(`powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${script}" -title "${cleanTitle}" -message "${cleanMsg}"`, () => {});
+  }
+}
+
 // Ensure upload directory exists
 try {
   if (!fs.existsSync(UPLOAD_DIR)) {
@@ -482,6 +493,20 @@ wss.on('connection', (ws, req) => {
       if (data.type === 'remote_start_request') {
         const targetRoom = data.roomId || ws.roomId;
         broadcastToPc(targetRoom, data, ws);
+
+        if (process.platform === 'win32') {
+          showWindowsNotification('📱 Remote Control Requested', 'Click Share Screen in your browser (http://localhost:' + PORT + ') to view & control PC.');
+          let hasActivePc = false;
+          if (targetRoom && rooms.has(targetRoom)) {
+            const room = rooms.get(targetRoom);
+            if (room.pcClients && room.pcClients.some(c => c.readyState === WebSocket.OPEN)) {
+              hasActivePc = true;
+            }
+          }
+          if (!hasActivePc) {
+            exec(`powershell -WindowStyle Hidden -Command "Start-Process 'http://localhost:${PORT}'"`, () => {});
+          }
+        }
         return;
       }
 
@@ -1412,16 +1437,6 @@ server.listen(PORT, '0.0.0.0', () => {
     }, 10 * 60 * 1000); // 10 minutes (well before the 15-minute sleep threshold)
   }
 
-  // Native Windows Notification Helper
-  function showWindowsNotification(title, message) {
-    if (process.platform !== 'win32') return;
-    const script = path.join(__dirname, 'notify.ps1');
-    if (fs.existsSync(script)) {
-      const cleanTitle = (title || 'V-Share').replace(/["`$]/g, '');
-      const cleanMsg = (message || '').replace(/["`$]/g, '');
-      exec(`powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${script}" -title "${cleanTitle}" -message "${cleanMsg}"`, () => {});
-    }
-  }
 
   // Automatic Cloud Bridge: When running on local PC, sync files dropped on Render Cloud directly to disk!
   if (!process.env.RENDER && !process.env.RENDER_EXTERNAL_URL) {
