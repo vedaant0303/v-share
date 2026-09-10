@@ -639,7 +639,23 @@ function initMobileApp() {
           }
           if (msg.type === 'clipboard_received' && msg.from === 'PC') {
             playSuccessChime();
-            showToast(`PC sent: "${msg.text.substring(0, 30)}..."`, '💻');
+            const text = msg.text || '';
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(() => {});
+              }
+            } catch (e) {}
+            const preview = text.length > 35 ? text.substring(0, 32) + '...' : text;
+            showToast(`📋 PC: "${preview}" (Copied!)`, '💻');
+
+            const textSection = document.getElementById('textSyncSection');
+            const textInput = document.getElementById('mobileTextInput');
+            if (textInput) {
+              textInput.value = text;
+            }
+            if (textSection && textSection.style.display === 'none') {
+              textSection.style.display = 'block';
+            }
           }
           if (msg.type === 'beam_claimed') {
             if (msg.token === activeBeamToken || activeBeamToken) {

@@ -591,10 +591,20 @@ wss.on('connection', (ws, req) => {
       }
 
       if (data.type === 'clipboard_share') {
+        const text = String(data.text || '');
+        if (text && process.platform === 'win32') {
+          try {
+            const clipProc = spawn('clip');
+            clipProc.stdin.write(text);
+            clipProc.stdin.end();
+            const preview = text.length > 40 ? text.substring(0, 37) + '...' : text;
+            showWindowsNotification('📋 Copied to Windows Clipboard!', `"${preview}"`);
+          } catch (e) {}
+        }
         if (ws.roomId) {
           broadcastToRoom(ws.roomId, {
             type: 'clipboard_received',
-            text: data.text,
+            text: text,
             from: isMobile ? 'Mobile' : 'PC',
             roomId: ws.roomId,
             timestamp: Date.now()
@@ -603,7 +613,7 @@ wss.on('connection', (ws, req) => {
           // Broadcast clipboard text to all other clients
           broadcast({
             type: 'clipboard_received',
-            text: data.text,
+            text: text,
             from: isMobile ? 'Mobile' : 'PC',
             timestamp: Date.now()
           });
@@ -1718,6 +1728,26 @@ server.listen(PORT, '0.0.0.0', () => {
               msg.type === 'phone_screen_offer' || msg.type === 'phone_screen_answer' ||
               msg.type === 'phone_screen_ice_candidate' || msg.type === 'phone_screen_stop') {
             broadcast(msg);
+            return;
+          }
+
+          if (msg.type === 'clipboard_received' || msg.type === 'clipboard_share') {
+            const text = String(msg.text || '');
+            if (text && process.platform === 'win32') {
+              try {
+                const clipProc = spawn('clip');
+                clipProc.stdin.write(text);
+                clipProc.stdin.end();
+                const preview = text.length > 40 ? text.substring(0, 37) + '...' : text;
+                showWindowsNotification('📋 Copied from Phone to Windows Clipboard!', `"${preview}"`);
+              } catch (e) {}
+            }
+            broadcast({
+              type: 'clipboard_received',
+              text: text,
+              from: 'Mobile',
+              timestamp: Date.now()
+            });
             return;
           }
 

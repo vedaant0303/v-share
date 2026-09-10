@@ -1150,7 +1150,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (msg.type === 'clipboard_received') {
           playNotificationChime();
-          showToast(`📋 Received from ${msg.from}: ${msg.text.substring(0, 30)}...`, '💬');
+          const text = msg.text || '';
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).catch(() => {});
+            }
+          } catch (e) {}
+
+          const preview = text.length > 40 ? text.substring(0, 37) + '...' : text;
+          showToast(`📋 Received from ${msg.from}: "${preview}" (Copied to PC Clipboard!)`, '📋');
+
+          const lastReceivedBox = document.getElementById('lastReceivedClipboardBox');
+          const lastReceivedText = document.getElementById('lastReceivedClipboardText');
+          if (lastReceivedBox && lastReceivedText) {
+            lastReceivedText.textContent = text;
+            lastReceivedBox.style.display = 'block';
+          }
         }
 
         // Phone-to-PC Screen Mirroring Handlers
@@ -1670,6 +1685,95 @@ document.addEventListener('DOMContentLoaded', () => {
           placeholder.style.display = 'flex';
           showToast('Waiting for phone screen stream... Tap "Share Screen" on phone!', '📱');
         }
+      }
+    });
+  }
+
+  // --- Cross-Device Clipboard Modal Logic ---
+  const clipboardModal = document.getElementById('clipboardModal');
+  const openClipboardSyncBtn = document.getElementById('openClipboardSyncBtn');
+  const closeClipboardModalBtn = document.getElementById('closeClipboardModalBtn');
+  const pcClipboardInput = document.getElementById('pcClipboardInput');
+  const pcPasteFromClipboardBtn = document.getElementById('pcPasteFromClipboardBtn');
+  const pcSendClipboardBtn = document.getElementById('pcSendClipboardBtn');
+  const copyLastReceivedBtn = document.getElementById('copyLastReceivedBtn');
+  const lastReceivedClipboardText = document.getElementById('lastReceivedClipboardText');
+
+  if (openClipboardSyncBtn && clipboardModal) {
+    openClipboardSyncBtn.addEventListener('click', () => {
+      clipboardModal.style.display = 'flex';
+      if (pcClipboardInput) pcClipboardInput.focus();
+    });
+  }
+
+  if (closeClipboardModalBtn && clipboardModal) {
+    closeClipboardModalBtn.addEventListener('click', () => {
+      clipboardModal.style.display = 'none';
+    });
+  }
+
+  if (clipboardModal) {
+    clipboardModal.addEventListener('click', (e) => {
+      if (e.target === clipboardModal) {
+        clipboardModal.style.display = 'none';
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && clipboardModal && clipboardModal.style.display === 'flex') {
+      clipboardModal.style.display = 'none';
+    }
+  });
+
+  if (pcPasteFromClipboardBtn && pcClipboardInput) {
+    pcPasteFromClipboardBtn.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          pcClipboardInput.value = text;
+          showToast('Pasted from PC clipboard!', '📋');
+        } else {
+          showToast('Clipboard is empty', 'ℹ️');
+        }
+      } catch (err) {
+        pcClipboardInput.focus();
+        showToast('Press Ctrl+V to paste', 'ℹ️');
+      }
+    });
+  }
+
+  if (pcSendClipboardBtn && pcClipboardInput) {
+    pcSendClipboardBtn.addEventListener('click', () => {
+      const text = pcClipboardInput.value.trim();
+      if (!text) {
+        showToast('Please type or paste some text first!', '⚠️');
+        return;
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'clipboard_share',
+          text,
+          roomId: currentRoomId,
+          from: 'PC'
+        }));
+        playSuccessChime();
+        showToast('🚀 Sent to phone clipboard!', '📱');
+        if (clipboardModal) clipboardModal.style.display = 'none';
+        pcClipboardInput.value = '';
+      } else {
+        showToast('WebSocket not connected', '⚠️');
+      }
+    });
+  }
+
+  if (copyLastReceivedBtn && lastReceivedClipboardText) {
+    copyLastReceivedBtn.addEventListener('click', () => {
+      const text = lastReceivedClipboardText.textContent;
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('Copied to clipboard!', '📋');
+        }).catch(() => {});
       }
     });
   }
