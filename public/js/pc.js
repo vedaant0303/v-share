@@ -1053,6 +1053,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     ws.onmessage = (event) => {
+      // Direct binary frame stream from Android ScreenCaptureService
+      if (event.data instanceof Blob) {
+        if (phoneScreenModal && phoneScreenModal.style.display !== 'flex') {
+          phoneScreenModal.style.display = 'flex';
+          try { playSuccessChime(); } catch (e) {}
+        }
+        if (phoneScreenImg) {
+          phoneScreenImg.style.display = 'block';
+          if (phoneScreenVideo) phoneScreenVideo.style.display = 'none';
+          if (currentPhoneBlobUrl) URL.revokeObjectURL(currentPhoneBlobUrl);
+          currentPhoneBlobUrl = URL.createObjectURL(event.data);
+          phoneScreenImg.src = currentPhoneBlobUrl;
+        }
+        return;
+      }
+
       try {
         const msg = JSON.parse(event.data);
 
@@ -1360,12 +1376,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const phoneScreenModal = document.getElementById('phoneScreenModal');
   const phoneScreenContainer = document.getElementById('phoneScreenContainer');
+  const phoneScreenImg = document.getElementById('phoneScreenImg');
   const phoneScreenVideo = document.getElementById('phoneScreenVideo');
   const phoneScreenshotBtn = document.getElementById('phoneScreenshotBtn');
   const phoneScreenFullscreenBtn = document.getElementById('phoneScreenFullscreenBtn');
   const closePhoneScreenModalBtn = document.getElementById('closePhoneScreenModalBtn');
 
   let phoneScreenPeerConnection = null;
+  let currentPhoneBlobUrl = null;
 
   async function handlePhoneScreenOffer(offer, roomId) {
     if (!offer) return;
@@ -1381,6 +1399,8 @@ document.addEventListener('DOMContentLoaded', () => {
       phoneScreenPeerConnection.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
           if (phoneScreenVideo) {
+            phoneScreenVideo.style.display = 'block';
+            if (phoneScreenImg) phoneScreenImg.style.display = 'none';
             phoneScreenVideo.srcObject = event.streams[0];
             phoneScreenVideo.play().catch(e => console.warn('Autoplay error:', e));
           }
@@ -1433,6 +1453,17 @@ document.addEventListener('DOMContentLoaded', () => {
         stream.getTracks().forEach(track => track.stop());
       } catch (e) {}
       phoneScreenVideo.srcObject = null;
+      phoneScreenVideo.style.display = 'none';
+    }
+
+    if (phoneScreenImg) {
+      phoneScreenImg.style.display = 'none';
+      phoneScreenImg.src = '';
+    }
+
+    if (currentPhoneBlobUrl) {
+      try { URL.revokeObjectURL(currentPhoneBlobUrl); } catch (e) {}
+      currentPhoneBlobUrl = null;
     }
 
     if (document.fullscreenElement) {
@@ -1453,17 +1484,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function takePhoneScreenshot() {
-    if (!phoneScreenVideo || !phoneScreenVideo.videoWidth) {
-      showToast('Video not ready for screenshot', '⚠️');
-      return;
-    }
-
     try {
       const canvas = document.createElement('canvas');
-      canvas.width = phoneScreenVideo.videoWidth;
-      canvas.height = phoneScreenVideo.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(phoneScreenVideo, 0, 0, canvas.width, canvas.height);
+      if (phoneScreenImg && phoneScreenImg.style.display !== 'none' && phoneScreenImg.naturalWidth) {
+        canvas.width = phoneScreenImg.naturalWidth;
+        canvas.height = phoneScreenImg.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(phoneScreenImg, 0, 0);
+      } else if (phoneScreenVideo && phoneScreenVideo.videoWidth) {
+        canvas.width = phoneScreenVideo.videoWidth;
+        canvas.height = phoneScreenVideo.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(phoneScreenVideo, 0, 0, canvas.width, canvas.height);
+      } else {
+        showToast('Screen not ready for screenshot', '⚠️');
+        return;
+      }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `phone-screenshot-${timestamp}.png`;

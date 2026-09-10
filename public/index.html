@@ -399,9 +399,10 @@
         </div>
       </div>
 
-      <!-- Video Display Frame -->
+      <!-- Video / Screen Display Frame -->
       <div id="phoneScreenContainer" style="position: relative; max-width: 86vw; max-height: 80vh; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; background: #000; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
-        <video id="phoneScreenVideo" autoplay playsinline style="max-width: 100%; max-height: 80vh; object-fit: contain;"></video>
+        <img id="phoneScreenImg" style="display: none; max-width: 100%; max-height: 80vh; object-fit: contain;" alt="Phone Live Screen">
+        <video id="phoneScreenVideo" autoplay playsinline style="display: none; max-width: 100%; max-height: 80vh; object-fit: contain;"></video>
       </div>
 
     </div>
@@ -411,6 +412,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="/js/jsQR.js"></script>
-  <script src="/js/pc.js?v=22"></script>
+  <script src="/js/pc.js?v=23"></script>
 </body>
 </html>

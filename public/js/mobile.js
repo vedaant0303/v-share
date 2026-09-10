@@ -643,6 +643,7 @@ function initMobileApp() {
   // --- Mobile Screen Sharing to PC ---
   let phoneScreenStream = null;
   let phonePeerConnection = null;
+  let isNativeSharingActive = false;
   const sharePhoneScreenBtn = document.getElementById('sharePhoneScreenBtn');
   const stopPhoneScreenShareBtn = document.getElementById('stopPhoneScreenShareBtn');
   const phoneCastingBanner = document.getElementById('phoneCastingBanner');
@@ -655,8 +656,36 @@ function initMobileApp() {
     ]
   };
 
+  // Global callbacks invoked by native Android host app
+  window.onNativeScreenCaptureStarted = function() {
+    isNativeSharingActive = true;
+    if (phoneCastingBanner) phoneCastingBanner.style.display = 'flex';
+    if (sharePhoneScreenBtn) {
+      sharePhoneScreenBtn.innerHTML = `
+        <span class="btn-icon" style="font-size: 20px;">🔴</span>
+        <span style="font-size: 13.5px; font-weight: 700; color: #fca5a5;">Stop Sharing Screen</span>
+      `;
+      sharePhoneScreenBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+      sharePhoneScreenBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+    }
+    showToast('🔴 Casting screen live to PC!', '📱');
+  };
+
+  window.onNativeScreenCaptureStopped = function() {
+    isNativeSharingActive = false;
+    if (phoneCastingBanner) phoneCastingBanner.style.display = 'none';
+    if (sharePhoneScreenBtn) {
+      sharePhoneScreenBtn.innerHTML = `
+        <span class="btn-icon" style="font-size: 20px;">📱</span>
+        <span style="font-size: 13.5px; font-weight: 700; color: #e9d5ff;">Share Phone Screen to PC</span>
+      `;
+      sharePhoneScreenBtn.style.background = 'linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(59, 130, 246, 0.18))';
+      sharePhoneScreenBtn.style.borderColor = 'rgba(168, 85, 247, 0.5)';
+    }
+  };
+
   async function startPhoneScreenShare() {
-    if (phoneScreenStream) {
+    if (phoneScreenStream || isNativeSharingActive) {
       stopPhoneScreenShare(true);
       return;
     }
@@ -667,48 +696,58 @@ function initMobileApp() {
       return;
     }
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      showToast('Screen sharing not supported on this browser/device', '❌');
+    // 1. Check if running inside V-Share Android native app
+    const bridge = window.AndroidHost || window.AndroidBridge;
+    if (bridge && typeof bridge.startScreenCapture === 'function') {
+      const serverUrl = window.location.origin;
+      showToast('Requesting Android screen capture...', '📱');
+      bridge.startScreenCapture(currentRoomId, serverUrl);
       return;
     }
 
-    try {
-      showToast('Starting screen capture...', '📱');
-      phoneScreenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          cursor: 'always',
-          frameRate: { ideal: 30, max: 60 }
-        },
-        audio: false
-      });
+    // 2. Web browser getDisplayMedia fallback
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      try {
+        showToast('Starting screen capture...', '📱');
+        phoneScreenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always',
+            frameRate: { ideal: 30, max: 60 }
+          },
+          audio: false
+        });
 
-      // Handle user stopping stream from Android system notification/drawer
-      if (phoneScreenStream.getVideoTracks() && phoneScreenStream.getVideoTracks()[0]) {
-        phoneScreenStream.getVideoTracks()[0].onended = () => {
-          stopPhoneScreenShare(true);
-        };
+        // Handle user stopping stream from native browser overlay
+        if (phoneScreenStream.getVideoTracks() && phoneScreenStream.getVideoTracks()[0]) {
+          phoneScreenStream.getVideoTracks()[0].onended = () => {
+            stopPhoneScreenShare(true);
+          };
+        }
+
+        if (phoneCastingBanner) phoneCastingBanner.style.display = 'flex';
+        if (sharePhoneScreenBtn) {
+          sharePhoneScreenBtn.innerHTML = `
+            <span class="btn-icon" style="font-size: 20px;">🔴</span>
+            <span style="font-size: 13.5px; font-weight: 700; color: #fca5a5;">Stop Sharing Screen</span>
+          `;
+          sharePhoneScreenBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+          sharePhoneScreenBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+        }
+
+        showToast('🔴 Casting screen live to your PC!', '📱');
+
+        await setupPhoneScreenPeerConnection();
+      } catch (err) {
+        console.warn('Screen share canceled or error:', err);
+        stopPhoneScreenShare(false);
+        if (err.name !== 'NotAllowedError') {
+          showToast('Screen share failed: ' + (err.message || 'Permission denied'), '⚠️');
+        }
       }
-
-      if (phoneCastingBanner) phoneCastingBanner.style.display = 'flex';
-      if (sharePhoneScreenBtn) {
-        sharePhoneScreenBtn.innerHTML = `
-          <span class="btn-icon" style="font-size: 20px;">🔴</span>
-          <span style="font-size: 13.5px; font-weight: 700; color: #fca5a5;">Stop Sharing Screen</span>
-        `;
-        sharePhoneScreenBtn.style.background = 'rgba(239, 68, 68, 0.2)';
-        sharePhoneScreenBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-      }
-
-      showToast('🔴 Casting screen live to your PC!', '📱');
-
-      await setupPhoneScreenPeerConnection();
-    } catch (err) {
-      console.warn('Screen share canceled or error:', err);
-      stopPhoneScreenShare(false);
-      if (err.name !== 'NotAllowedError') {
-        showToast('Screen share failed: ' + (err.message || 'Permission denied'), '⚠️');
-      }
+      return;
     }
+
+    showToast('📱 Please use the V-Share Android App to share your screen!', 'ℹ️');
   }
 
   async function setupPhoneScreenPeerConnection() {
@@ -757,6 +796,12 @@ function initMobileApp() {
   }
 
   function stopPhoneScreenShare(notifyPc = true) {
+    const bridge = window.AndroidHost || window.AndroidBridge;
+    if (bridge && typeof bridge.stopScreenCapture === 'function') {
+      bridge.stopScreenCapture();
+    }
+    isNativeSharingActive = false;
+
     if (phoneScreenStream) {
       try {
         phoneScreenStream.getTracks().forEach(track => track.stop());

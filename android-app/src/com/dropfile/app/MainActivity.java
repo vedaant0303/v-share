@@ -24,6 +24,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.content.Context;
+import android.media.projection.MediaProjectionManager;
+import android.os.Build;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -34,6 +37,10 @@ public class MainActivity extends Activity {
     private static final int REQUEST_PICK_FILE = 1001;
     private static final int REQUEST_FILE_CHOOSER = 1002;
     private static final int REQUEST_CAMERA_PERMISSION = 1003;
+    private static final int REQUEST_MEDIA_PROJECTION = 1004;
+
+    private String mCurrentCaptureRoomId;
+    private String mCurrentCaptureServerUrl;
     private android.webkit.PermissionRequest mPendingPermissionRequest;
 
     private EditText ipInput;
@@ -151,7 +158,68 @@ public class MainActivity extends Activity {
                     }
                 });
             }
+
+            @JavascriptInterface
+            public void startScreenCapture(String roomId, String serverUrl) {
+                runOnUiThread(() -> {
+                    mCurrentCaptureRoomId = roomId;
+                    mCurrentCaptureServerUrl = serverUrl;
+                    MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                    if (mpm != null) {
+                        startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);
+                    }
+                });
+            }
+
+            @JavascriptInterface
+            public void stopScreenCapture() {
+                runOnUiThread(() -> {
+                    Intent intent = new Intent(MainActivity.this, ScreenCaptureService.class);
+                    intent.setAction(ScreenCaptureService.ACTION_STOP);
+                    startService(intent);
+                    if (webView != null) {
+                        webView.evaluateJavascript("if (window.onNativeScreenCaptureStopped) window.onNativeScreenCaptureStopped();", null);
+                    }
+                });
+            }
+
+            @JavascriptInterface
+            public boolean isNative() {
+                return true;
+            }
         }, "AndroidHost");
+
+        // Also expose AndroidBridge as alias for compatibility
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void startScreenCapture(String roomId, String serverUrl) {
+                runOnUiThread(() -> {
+                    mCurrentCaptureRoomId = roomId;
+                    mCurrentCaptureServerUrl = serverUrl;
+                    MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                    if (mpm != null) {
+                        startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);
+                    }
+                });
+            }
+
+            @JavascriptInterface
+            public void stopScreenCapture() {
+                runOnUiThread(() -> {
+                    Intent intent = new Intent(MainActivity.this, ScreenCaptureService.class);
+                    intent.setAction(ScreenCaptureService.ACTION_STOP);
+                    startService(intent);
+                    if (webView != null) {
+                        webView.evaluateJavascript("if (window.onNativeScreenCaptureStopped) window.onNativeScreenCaptureStopped();", null);
+                    }
+                });
+            }
+
+            @JavascriptInterface
+            public boolean isNative() {
+                return true;
+            }
+        }, "AndroidBridge");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -420,6 +488,34 @@ public class MainActivity extends Activity {
                 shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
                 startActivity(shareIntent);
             }
+            return;
+        }
+
+        // MediaProjection for Screen Sharing
+        if (requestCode == REQUEST_MEDIA_PROJECTION) {
+            if (resultCode == RESULT_OK && data != null) {
+                Intent serviceIntent = new Intent(this, ScreenCaptureService.class);
+                serviceIntent.setAction(ScreenCaptureService.ACTION_START);
+                serviceIntent.putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode);
+                serviceIntent.putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, data);
+                serviceIntent.putExtra(ScreenCaptureService.EXTRA_ROOM_ID, mCurrentCaptureRoomId);
+                serviceIntent.putExtra(ScreenCaptureService.EXTRA_SERVER_URL, mCurrentCaptureServerUrl);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent);
+                } else {
+                    startService(serviceIntent);
+                }
+
+                if (webView != null) {
+                    webView.evaluateJavascript("if (window.onNativeScreenCaptureStarted) window.onNativeScreenCaptureStarted();", null);
+                }
+            } else {
+                if (webView != null) {
+                    webView.evaluateJavascript("if (window.onNativeScreenCaptureStopped) window.onNativeScreenCaptureStopped();", null);
+                }
+            }
+            return;
         }
     }
 
