@@ -582,6 +582,39 @@ wss.on('connection', (ws, req) => {
         }
         return;
       }
+
+      // Phone-to-PC Screen Mirroring Signaling
+      if (data.type === 'phone_screen_offer') {
+        const targetRoom = data.roomId || ws.roomId;
+        broadcastToPc(targetRoom, data, ws);
+        return;
+      }
+
+      if (data.type === 'phone_screen_answer') {
+        const targetRoom = data.roomId || ws.roomId;
+        broadcastToMobile(targetRoom, data, ws);
+        return;
+      }
+
+      if (data.type === 'phone_screen_ice_candidate') {
+        const targetRoom = data.roomId || ws.roomId;
+        if (data.role === 'phone' || data.role === 'mobile') {
+          broadcastToPc(targetRoom, data, ws);
+        } else {
+          broadcastToMobile(targetRoom, data, ws);
+        }
+        return;
+      }
+
+      if (data.type === 'phone_screen_stop') {
+        const targetRoom = data.roomId || ws.roomId;
+        if (data.role === 'pc') {
+          broadcastToMobile(targetRoom, data, ws);
+        } else {
+          broadcastToPc(targetRoom, data, ws);
+        }
+        return;
+      }
     } catch (err) {
       console.error('Error handling WS message:', err);
     }
@@ -1548,7 +1581,9 @@ server.listen(PORT, '0.0.0.0', () => {
           }
 
           if (msg.type === 'remote_start_request' || msg.type === 'remote_stop' ||
-              msg.type === 'webrtc_offer' || msg.type === 'webrtc_answer' || msg.type === 'webrtc_ice_candidate') {
+              msg.type === 'webrtc_offer' || msg.type === 'webrtc_answer' || msg.type === 'webrtc_ice_candidate' ||
+              msg.type === 'phone_screen_offer' || msg.type === 'phone_screen_answer' ||
+              msg.type === 'phone_screen_ice_candidate' || msg.type === 'phone_screen_stop') {
             broadcast(msg);
             return;
           }

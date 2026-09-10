@@ -608,11 +608,191 @@ function initMobileApp() {
             handleIncomingFileFromPc(msg.file);
           }
 
+          // Phone-to-PC Screen Mirroring WebRTC Handlers
+          if (msg.type === 'phone_screen_answer' && phonePeerConnection) {
+            try {
+              phonePeerConnection.setRemoteDescription(new RTCSessionDescription(msg.answer));
+            } catch (e) {
+              console.error('Error setting remote description on mobile:', e);
+            }
+            return;
+          }
+
+          if (msg.type === 'phone_screen_ice_candidate' && phonePeerConnection && msg.candidate) {
+            try {
+              phonePeerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
+            } catch (e) {
+              console.error('Error adding ICE candidate on mobile:', e);
+            }
+            return;
+          }
+
+          if (msg.type === 'phone_screen_stop') {
+            stopPhoneScreenShare(false);
+            showToast('Screen sharing ended by PC', '🖥️');
+            return;
+          }
+
         } catch (err) {}
       };
     } catch (e) {
       checkServerHealth();
     }
+  }
+
+  // --- Mobile Screen Sharing to PC ---
+  let phoneScreenStream = null;
+  let phonePeerConnection = null;
+  const sharePhoneScreenBtn = document.getElementById('sharePhoneScreenBtn');
+  const stopPhoneScreenShareBtn = document.getElementById('stopPhoneScreenShareBtn');
+  const phoneCastingBanner = document.getElementById('phoneCastingBanner');
+
+  const mobileRtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  };
+
+  async function startPhoneScreenShare() {
+    if (phoneScreenStream) {
+      stopPhoneScreenShare(true);
+      return;
+    }
+
+    if (!currentRoomId) {
+      showToast('Please pair with your PC first!', '⚠️');
+      if (pairModal) pairModal.classList.add('active');
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      showToast('Screen sharing not supported on this browser/device', '❌');
+      return;
+    }
+
+    try {
+      showToast('Starting screen capture...', '📱');
+      phoneScreenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: 'always',
+          frameRate: { ideal: 30, max: 60 }
+        },
+        audio: false
+      });
+
+      // Handle user stopping stream from Android system notification/drawer
+      if (phoneScreenStream.getVideoTracks() && phoneScreenStream.getVideoTracks()[0]) {
+        phoneScreenStream.getVideoTracks()[0].onended = () => {
+          stopPhoneScreenShare(true);
+        };
+      }
+
+      if (phoneCastingBanner) phoneCastingBanner.style.display = 'flex';
+      if (sharePhoneScreenBtn) {
+        sharePhoneScreenBtn.innerHTML = `
+          <span class="btn-icon" style="font-size: 20px;">🔴</span>
+          <span style="font-size: 13.5px; font-weight: 700; color: #fca5a5;">Stop Sharing Screen</span>
+        `;
+        sharePhoneScreenBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+        sharePhoneScreenBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+      }
+
+      showToast('🔴 Casting screen live to your PC!', '📱');
+
+      await setupPhoneScreenPeerConnection();
+    } catch (err) {
+      console.warn('Screen share canceled or error:', err);
+      stopPhoneScreenShare(false);
+      if (err.name !== 'NotAllowedError') {
+        showToast('Screen share failed: ' + (err.message || 'Permission denied'), '⚠️');
+      }
+    }
+  }
+
+  async function setupPhoneScreenPeerConnection() {
+    if (!phoneScreenStream) return;
+
+    if (phonePeerConnection) {
+      try { phonePeerConnection.close(); } catch (e) {}
+    }
+
+    phonePeerConnection = new RTCPeerConnection(mobileRtcConfig);
+
+    phoneScreenStream.getTracks().forEach(track => {
+      phonePeerConnection.addTrack(track, phoneScreenStream);
+    });
+
+    phonePeerConnection.onicecandidate = (event) => {
+      if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'phone_screen_ice_candidate',
+          candidate: event.candidate,
+          role: 'phone',
+          roomId: currentRoomId
+        }));
+      }
+    };
+
+    try {
+      const offer = await phonePeerConnection.createOffer({
+        offerToReceiveVideo: false,
+        offerToReceiveAudio: false
+      });
+      await phonePeerConnection.setLocalDescription(offer);
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'phone_screen_offer',
+          offer: offer,
+          role: 'phone',
+          roomId: currentRoomId
+        }));
+      }
+    } catch (e) {
+      console.error('Error creating phone screen offer:', e);
+      showToast('Failed to start WebRTC streaming', '⚠️');
+    }
+  }
+
+  function stopPhoneScreenShare(notifyPc = true) {
+    if (phoneScreenStream) {
+      try {
+        phoneScreenStream.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+      phoneScreenStream = null;
+    }
+
+    if (phonePeerConnection) {
+      try { phonePeerConnection.close(); } catch (e) {}
+      phonePeerConnection = null;
+    }
+
+    if (phoneCastingBanner) phoneCastingBanner.style.display = 'none';
+    if (sharePhoneScreenBtn) {
+      sharePhoneScreenBtn.innerHTML = `
+        <span class="btn-icon" style="font-size: 20px;">📱</span>
+        <span style="font-size: 13.5px; font-weight: 700; color: #e9d5ff;">Share Phone Screen to PC</span>
+      `;
+      sharePhoneScreenBtn.style.background = 'linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(59, 130, 246, 0.18))';
+      sharePhoneScreenBtn.style.borderColor = 'rgba(168, 85, 247, 0.5)';
+    }
+
+    if (notifyPc && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'phone_screen_stop',
+        role: 'phone',
+        roomId: currentRoomId
+      }));
+    }
+  }
+
+  if (sharePhoneScreenBtn) {
+    sharePhoneScreenBtn.addEventListener('click', startPhoneScreenShare);
+  }
+  if (stopPhoneScreenShareBtn) {
+    stopPhoneScreenShareBtn.addEventListener('click', () => stopPhoneScreenShare(true));
   }
 
   // File Upload Logic

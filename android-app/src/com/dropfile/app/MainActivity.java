@@ -195,11 +195,10 @@ public class MainActivity extends Activity {
             @Override
             public void onPermissionRequest(final android.webkit.PermissionRequest request) {
                 runOnUiThread(() -> {
-                    if (checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    try {
                         request.grant(request.getResources());
-                    } else {
-                        mPendingPermissionRequest = request;
-                        requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+                    } catch (Exception e) {
+                        try { request.deny(); } catch (Exception ignored) {}
                     }
                 });
             }

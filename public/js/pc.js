@@ -1117,46 +1117,27 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`📋 Received from ${msg.from}: ${msg.text.substring(0, 30)}...`, '💬');
         }
 
-        // WebRTC & Remote Control Host Handlers
-        if (msg.type === 'remote_start_request') {
-          console.log('📱 Phone requested Remote Desktop control!');
-          const promptModal = document.getElementById('pcRemoteRequestModal');
-          if (promptModal) {
-            promptModal.classList.add('active');
-            try { playSuccessChime(); } catch (e) {}
-            showToast('📱 Phone requested Remote Control! Click Share Screen to allow.', '🖥️');
-          } else {
-            startScreenShareHost();
-          }
+        // Phone-to-PC Screen Mirroring WebRTC Handlers
+        if (msg.type === 'phone_screen_offer') {
+          console.log('📱 Phone started screen share! Opening viewer modal...');
+          try { playSuccessChime(); } catch (e) {}
+          showToast('📱 Phone started sharing screen!', '🔴');
+          handlePhoneScreenOffer(msg.offer, msg.roomId);
           return;
         }
 
-        if (msg.type === 'webrtc_answer' && pcPeerConnection) {
+        if (msg.type === 'phone_screen_ice_candidate' && phoneScreenPeerConnection && msg.candidate) {
           try {
-            pcPeerConnection.setRemoteDescription(new RTCSessionDescription(msg.answer));
-          } catch (e) {
-            console.error('Error setting remote description on PC:', e);
-          }
-          return;
-        }
-
-        if (msg.type === 'webrtc_ice_candidate' && pcPeerConnection && msg.candidate) {
-          try {
-            pcPeerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
+            phoneScreenPeerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
           } catch (e) {
             console.error('Error adding ICE candidate on PC:', e);
           }
           return;
         }
 
-        if (msg.type === 'remote_stop') {
-          stopScreenShareHost();
-          return;
-        }
-
-        // Forward remote input events from phone to local Windows input daemon
-        if (msg.type === 'remote_input') {
-          forwardRemoteInputToLocalPc(msg);
+        if (msg.type === 'phone_screen_stop') {
+          closePhoneScreenViewer(false);
+          showToast('Phone stopped screen sharing', '📱');
           return;
         }
 
@@ -1352,39 +1333,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- WebRTC Screen Sharing & Remote Control Host (PC) ---
-  let pcScreenStream = null;
-  let pcPeerConnection = null;
-  let pcControlDataChannel = null;
-  const pcRemoteScreenBtn = document.getElementById('pcRemoteScreenBtn');
-  const pcRemoteActiveBanner = document.getElementById('pcRemoteActiveBanner');
-  const stopPcRemoteBtn = document.getElementById('stopPcRemoteBtn');
-  const remoteBtnText = document.getElementById('remoteBtnText');
-
-  const rtcConfig = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
-    ]
-  };
-
-  // Forward remote input from Mobile directly to local Windows OS daemon
-  function forwardRemoteInputToLocalPc(payload) {
-    if (!payload || !payload.action) return;
-    fetch('http://localhost:4000/api/remote-input', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).catch(() => {
-      fetch('http://127.0.0.1:4000/api/remote-input', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
-    });
-  }
-
   // Ensure local Windows background service joins the same room code as PC browser
   function syncCloudRoomWithLocalDaemon(roomId) {
     if (!roomId) return;
@@ -1401,182 +1349,164 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function setupPcDataChannel(channel) {
-    if (!channel) return;
-    pcControlDataChannel = channel;
-    channel.onopen = () => {
-      console.log('⚡ [WebRTC DataChannel] Direct P2P Remote Control active on PC!');
-    };
-    channel.onmessage = (event) => {
-      try {
-        const inputData = JSON.parse(event.data);
-        forwardRemoteInputToLocalPc(inputData);
-      } catch (e) {
-        console.warn('DataChannel parse error:', e);
-      }
-    };
-    channel.onclose = () => {
-      console.log('⚡ [WebRTC DataChannel] Closed on PC');
-    };
-  }
+  // --- Phone-to-PC Screen Mirroring Viewer Logic ---
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  };
 
-  async function startScreenShareHost(autoPrompt = false) {
-    if (pcScreenStream) {
-      stopScreenShareHost();
-      return;
+  const phoneScreenModal = document.getElementById('phoneScreenModal');
+  const phoneScreenContainer = document.getElementById('phoneScreenContainer');
+  const phoneScreenVideo = document.getElementById('phoneScreenVideo');
+  const phoneScreenshotBtn = document.getElementById('phoneScreenshotBtn');
+  const phoneScreenFullscreenBtn = document.getElementById('phoneScreenFullscreenBtn');
+  const closePhoneScreenModalBtn = document.getElementById('closePhoneScreenModalBtn');
+
+  let phoneScreenPeerConnection = null;
+
+  async function handlePhoneScreenOffer(offer, roomId) {
+    if (!offer) return;
+
+    if (phoneScreenPeerConnection) {
+      try { phoneScreenPeerConnection.close(); } catch (e) {}
+      phoneScreenPeerConnection = null;
     }
 
     try {
-      pcScreenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          cursor: 'always',
-          frameRate: { ideal: 30, max: 60 }
-        },
-        audio: false
-      });
+      phoneScreenPeerConnection = new RTCPeerConnection(rtcConfig);
 
-      // Handle user stopping stream from native browser overlay
-      if (pcScreenStream.getVideoTracks() && pcScreenStream.getVideoTracks()[0]) {
-        pcScreenStream.getVideoTracks()[0].onended = () => {
-          stopScreenShareHost();
-        };
-      }
+      phoneScreenPeerConnection.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          if (phoneScreenVideo) {
+            phoneScreenVideo.srcObject = event.streams[0];
+            phoneScreenVideo.play().catch(e => console.warn('Autoplay error:', e));
+          }
+        }
+      };
 
-      if (pcRemoteActiveBanner) pcRemoteActiveBanner.style.display = 'flex';
-      const promptModal = document.getElementById('pcRemoteRequestModal');
-      if (promptModal) promptModal.classList.remove('active');
-      if (remoteBtnText) remoteBtnText.textContent = 'Stop Sharing';
-      if (pcRemoteScreenBtn) {
-        pcRemoteScreenBtn.style.background = 'rgba(239, 68, 68, 0.2)';
-        pcRemoteScreenBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-        pcRemoteScreenBtn.style.color = '#fca5a5';
-      }
+      phoneScreenPeerConnection.onicecandidate = (event) => {
+        if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'phone_screen_ice_candidate',
+            candidate: event.candidate,
+            role: 'pc',
+            roomId: currentRoomId
+          }));
+        }
+      };
 
-      showToast('🖥️ Screen sharing active! Connected phone can now control this PC.', '🟢');
-
-      // Sync active room with local background daemon
-      if (currentRoomId) {
-        syncCloudRoomWithLocalDaemon(currentRoomId);
-      }
-
-      // Setup WebRTC connection with Mobile
-      setupPcPeerConnection();
-    } catch (err) {
-      console.warn('Screen share canceled or denied:', err.message);
-      stopScreenShareHost();
-    }
-  }
-
-  async function setupPcPeerConnection() {
-    if (!pcScreenStream) return;
-
-    if (pcPeerConnection) {
-      try { pcPeerConnection.close(); } catch (e) {}
-    }
-
-    pcPeerConnection = new RTCPeerConnection(rtcConfig);
-
-    // Setup direct P2P DataChannel for sub-5ms touch control
-    try {
-      const channel = pcPeerConnection.createDataChannel('remote_control', {
-        ordered: false,
-        maxRetransmits: 0
-      });
-      setupPcDataChannel(channel);
-    } catch (e) {
-      console.warn('Could not create DataChannel on PC:', e);
-    }
-
-    pcPeerConnection.ondatachannel = (event) => {
-      if (event.channel && event.channel.label === 'remote_control') {
-        setupPcDataChannel(event.channel);
-      }
-    };
-
-    pcScreenStream.getTracks().forEach(track => {
-      pcPeerConnection.addTrack(track, pcScreenStream);
-    });
-
-    pcPeerConnection.onicecandidate = (event) => {
-      if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'webrtc_ice_candidate',
-          candidate: event.candidate,
-          role: 'pc'
-        }));
-      }
-    };
-
-    try {
-      const offer = await pcPeerConnection.createOffer({
-        offerToReceiveVideo: false,
-        offerToReceiveAudio: false
-      });
-      await pcPeerConnection.setLocalDescription(offer);
+      await phoneScreenPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await phoneScreenPeerConnection.createAnswer();
+      await phoneScreenPeerConnection.setLocalDescription(answer);
 
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
-          type: 'webrtc_offer',
-          offer: offer,
-          role: 'pc'
+          type: 'phone_screen_answer',
+          answer: answer,
+          role: 'pc',
+          roomId: currentRoomId
         }));
       }
-    } catch (e) {
-      console.error('Error creating WebRTC offer on PC:', e);
+
+      if (phoneScreenModal) {
+        phoneScreenModal.style.display = 'flex';
+      }
+    } catch (err) {
+      console.error('Error answering phone screen offer:', err);
+      showToast('Could not establish screen streaming: ' + err.message, '⚠️');
+      closePhoneScreenViewer(true);
     }
   }
 
-  function stopScreenShareHost() {
-    if (pcScreenStream) {
-      pcScreenStream.getTracks().forEach(track => track.stop());
-      pcScreenStream = null;
-    }
-    if (pcControlDataChannel) {
-      try { pcControlDataChannel.close(); } catch (e) {}
-      pcControlDataChannel = null;
-    }
-    if (pcPeerConnection) {
-      try { pcPeerConnection.close(); } catch (e) {}
-      pcPeerConnection = null;
+  function closePhoneScreenViewer(notifyMobile = true) {
+    if (phoneScreenPeerConnection) {
+      try { phoneScreenPeerConnection.close(); } catch (e) {}
+      phoneScreenPeerConnection = null;
     }
 
-    if (pcRemoteActiveBanner) pcRemoteActiveBanner.style.display = 'none';
-    if (remoteBtnText) remoteBtnText.textContent = 'Remote Control';
-    if (pcRemoteScreenBtn) {
-      pcRemoteScreenBtn.style.background = 'rgba(168, 85, 247, 0.15)';
-      pcRemoteScreenBtn.style.borderColor = 'rgba(168, 85, 247, 0.4)';
-      pcRemoteScreenBtn.style.color = '#c084fc';
+    if (phoneScreenVideo && phoneScreenVideo.srcObject) {
+      try {
+        const stream = phoneScreenVideo.srcObject;
+        stream.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+      phoneScreenVideo.srcObject = null;
     }
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (document.fullscreenElement) {
+      try { document.exitFullscreen(); } catch (e) {}
+    }
+
+    if (phoneScreenModal) {
+      phoneScreenModal.style.display = 'none';
+    }
+
+    if (notifyMobile && ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
-        type: 'remote_stop',
-        role: 'pc'
+        type: 'phone_screen_stop',
+        role: 'pc',
+        roomId: currentRoomId
       }));
     }
   }
 
-  if (pcRemoteScreenBtn) {
-    pcRemoteScreenBtn.addEventListener('click', () => startScreenShareHost());
-  }
-  if (stopPcRemoteBtn) {
-    stopPcRemoteBtn.addEventListener('click', () => stopScreenShareHost());
+  function takePhoneScreenshot() {
+    if (!phoneScreenVideo || !phoneScreenVideo.videoWidth) {
+      showToast('Video not ready for screenshot', '⚠️');
+      return;
+    }
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = phoneScreenVideo.videoWidth;
+      canvas.height = phoneScreenVideo.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(phoneScreenVideo, 0, 0, canvas.width, canvas.height);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `phone-screenshot-${timestamp}.png`;
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`📸 Screenshot saved: ${filename}`, '💾');
+      }, 'image/png');
+    } catch (err) {
+      console.error('Screenshot error:', err);
+      showToast('Screenshot failed: ' + err.message, '⚠️');
+    }
   }
 
-  const pcRemoteRequestModal = document.getElementById('pcRemoteRequestModal');
-  const acceptPcRemoteBtn = document.getElementById('acceptPcRemoteBtn');
-  const rejectPcRemoteBtn = document.getElementById('rejectPcRemoteBtn');
-
-  if (acceptPcRemoteBtn) {
-    acceptPcRemoteBtn.addEventListener('click', () => {
-      if (pcRemoteRequestModal) pcRemoteRequestModal.classList.remove('active');
-      startScreenShareHost();
-    });
+  function togglePhoneFullscreen() {
+    if (!phoneScreenContainer) return;
+    if (!document.fullscreenElement) {
+      phoneScreenContainer.requestFullscreen().catch(err => {
+        showToast('Fullscreen error: ' + err.message, '⚠️');
+      });
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
   }
-  if (rejectPcRemoteBtn) {
-    rejectPcRemoteBtn.addEventListener('click', () => {
-      if (pcRemoteRequestModal) pcRemoteRequestModal.classList.remove('active');
-    });
+
+  if (closePhoneScreenModalBtn) {
+    closePhoneScreenModalBtn.addEventListener('click', () => closePhoneScreenViewer(true));
+  }
+
+  if (phoneScreenshotBtn) {
+    phoneScreenshotBtn.addEventListener('click', takePhoneScreenshot);
+  }
+
+  if (phoneScreenFullscreenBtn) {
+    phoneScreenFullscreenBtn.addEventListener('click', togglePhoneFullscreen);
   }
 
   // Initial Boot
