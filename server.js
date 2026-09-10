@@ -85,7 +85,15 @@ app.use((req, res, next) => {
 // Parse JSON and urlencoded for text messages
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.html') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // Explicit Favicon route
 app.get('/favicon.ico', (req, res) => {
@@ -1058,6 +1066,9 @@ app.get('/api/tunnel/status', (req, res) => {
 
 // Mobile interface direct route
 app.get('/mobile', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
 });
 

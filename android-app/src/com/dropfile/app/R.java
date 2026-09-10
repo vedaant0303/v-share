@@ -14,19 +14,20 @@ public final class R {
     public static final int logo_icon=0x7f010002;
   }
   public static final class id {
-    public static final int btnSettingsFromWeb=0x7f020000;
-    public static final int ipInput=0x7f020001;
-    public static final int openWebBtn=0x7f020002;
-    public static final int pickFileBtn=0x7f020003;
-    public static final int saveBtn=0x7f020004;
-    public static final int settingsScrollView=0x7f020005;
-    public static final int shareFileName=0x7f020006;
-    public static final int shareProgressBar=0x7f020007;
-    public static final int shareStatus=0x7f020008;
-    public static final int statusText=0x7f020009;
-    public static final int webContainer=0x7f02000a;
-    public static final int webHeader=0x7f02000b;
-    public static final int webView=0x7f02000c;
+    public static final int btnRefreshFromWeb=0x7f020000;
+    public static final int btnSettingsFromWeb=0x7f020001;
+    public static final int ipInput=0x7f020002;
+    public static final int openWebBtn=0x7f020003;
+    public static final int pickFileBtn=0x7f020004;
+    public static final int saveBtn=0x7f020005;
+    public static final int settingsScrollView=0x7f020006;
+    public static final int shareFileName=0x7f020007;
+    public static final int shareProgressBar=0x7f020008;
+    public static final int shareStatus=0x7f020009;
+    public static final int statusText=0x7f02000a;
+    public static final int webContainer=0x7f02000b;
+    public static final int webHeader=0x7f02000c;
+    public static final int webView=0x7f02000d;
   }
   public static final class layout {
     public static final int activity_main=0x7f030000;

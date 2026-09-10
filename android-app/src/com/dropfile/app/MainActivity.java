@@ -96,6 +96,17 @@ public class MainActivity extends Activity {
 
         btnSettingsFromWeb.setOnClickListener(v -> showSettingsView());
 
+        Button btnRefreshFromWeb = findViewById(R.id.btnRefreshFromWeb);
+        if (btnRefreshFromWeb != null) {
+            btnRefreshFromWeb.setOnClickListener(v -> {
+                if (webView != null) {
+                    webView.clearCache(true);
+                    webView.reload();
+                    Toast.makeText(this, "Reloading...", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
         pickFileBtn.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.setType("*/*");
@@ -117,6 +128,7 @@ public class MainActivity extends Activity {
         ws.setUseWideViewPort(true);
         ws.setLoadWithOverviewMode(true);
         ws.setMediaPlaybackRequiresUserGesture(false);
+        ws.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
         // JavaScript Bridge for 100% Reliable Native Downloads & File Opening
         webView.addJavascriptInterface(new Object() {
@@ -402,6 +414,7 @@ public class MainActivity extends Activity {
 
     private void showInAppDashboard(String serverUrl) {
         String mobileUrl = serverUrl + "/mobile";
+        webView.clearCache(true);
         webView.loadUrl(mobileUrl);
         settingsScrollView.setVisibility(View.GONE);
         webContainer.setVisibility(View.VISIBLE);

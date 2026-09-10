@@ -1,4 +1,5 @@
 // DropFile Mobile Client Controller
+window.detectedLocalPcUrl = null;
 function initMobileApp() {
   let ws;
   let detectedLocalPcUrl = null;
@@ -617,6 +618,7 @@ function initMobileApp() {
                     const verified = bridge.checkLocalServer(msg.localUrl);
                     if (verified) {
                       detectedLocalPcUrl = verified;
+                      window.detectedLocalPcUrl = verified;
                       console.log('⚡ Native Wi-Fi bridge verified:', verified);
                       showToast('⚡ Superfast Local Wi-Fi connected!', '🚀');
                     }
@@ -627,6 +629,7 @@ function initMobileApp() {
                   .then(r => {
                     if (r.ok) {
                       detectedLocalPcUrl = msg.localUrl;
+                      window.detectedLocalPcUrl = msg.localUrl;
                       console.log('⚡ Direct Local Wi-Fi available:', msg.localUrl);
                     }
                   })
@@ -768,8 +771,8 @@ function initMobileApp() {
           body: JSON.stringify({ roomId: currentRoomId })
         }).catch(() => {});
 
-        const serverUrl = (typeof detectedLocalPcUrl !== 'undefined' && detectedLocalPcUrl) ? detectedLocalPcUrl : window.location.origin;
-        showToast((typeof detectedLocalPcUrl !== 'undefined' && detectedLocalPcUrl) ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
+        const serverUrl = window.detectedLocalPcUrl || window.location.origin;
+        showToast(window.detectedLocalPcUrl ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
         bridge.startScreenCapture(currentRoomId, serverUrl);
       } catch (err) {
         console.error('Error invoking native startScreenCapture:', err);
