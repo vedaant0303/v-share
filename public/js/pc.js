@@ -1054,7 +1054,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ws.onmessage = (event) => {
       // Direct binary frame stream from Android ScreenCaptureService (Hardware Accelerated Canvas)
-      if (event.data instanceof Blob) {
+      if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+        const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'image/jpeg' });
         if (phoneScreenModal && phoneScreenModal.style.display !== 'flex') {
           phoneScreenModal.style.display = 'flex';
           try { playSuccessChime(); } catch (e) {}
@@ -1063,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
           phoneScreenCanvas.style.display = 'block';
           if (phoneScreenImg) phoneScreenImg.style.display = 'none';
           if (phoneScreenVideo) phoneScreenVideo.style.display = 'none';
-          renderScreenBlobToCanvas(event.data);
+          renderScreenBlobToCanvas(blob);
         }
         return;
       }
@@ -1374,15 +1375,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const closePhoneScreenModalBtn = document.getElementById('closePhoneScreenModalBtn');
 
   const canvasCtx = phoneScreenCanvas ? phoneScreenCanvas.getContext('2d', { alpha: false, desynchronized: true }) : null;
+  let latestFrameBlob = null;
   let isCanvasRendering = false;
   let phoneScreenPeerConnection = null;
   let currentPhoneBlobUrl = null;
 
-  async function renderScreenBlobToCanvas(blob) {
-    if (isCanvasRendering) return; // Drop frame if previous is still rendering
+  function renderScreenBlobToCanvas(blob) {
+    latestFrameBlob = blob;
+    if (!isCanvasRendering) {
+      processNextScreenFrame();
+    }
+  }
+
+  async function processNextScreenFrame() {
+    if (!latestFrameBlob) return;
     isCanvasRendering = true;
+    const blobToRender = latestFrameBlob;
+    latestFrameBlob = null;
     try {
-      const bitmap = await createImageBitmap(blob);
+      const bitmap = await createImageBitmap(blobToRender);
       if (phoneScreenCanvas.width !== bitmap.width || phoneScreenCanvas.height !== bitmap.height) {
         phoneScreenCanvas.width = bitmap.width;
         phoneScreenCanvas.height = bitmap.height;
@@ -1394,6 +1405,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
     } finally {
       isCanvasRendering = false;
+      if (latestFrameBlob) {
+        requestAnimationFrame(processNextScreenFrame);
+      }
     }
   }
 

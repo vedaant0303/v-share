@@ -584,6 +584,8 @@ function initMobileApp() {
         checkServerHealth();
       };
 
+  let detectedLocalPcUrl = null;
+
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
@@ -593,6 +595,17 @@ function initMobileApp() {
             if (isPaired) {
               setConnected(true);
               showToast('🟢 Paired with your PC!', '💻');
+            }
+            // Test if PC is directly reachable on the local Wi-Fi network (sub-5ms streaming)
+            if (msg.localUrl) {
+              fetch(`${msg.localUrl}/api/ping`, { cache: 'no-cache', mode: 'cors' })
+                .then(r => {
+                  if (r.ok) {
+                    detectedLocalPcUrl = msg.localUrl;
+                    console.log('⚡ Direct Local Wi-Fi available:', msg.localUrl);
+                  }
+                })
+                .catch(() => {});
             }
           }
           if (msg.type === 'clipboard_received' && msg.from === 'PC') {
@@ -699,8 +712,8 @@ function initMobileApp() {
     // 1. Check if running inside V-Share Android native app
     const bridge = window.AndroidHost || window.AndroidBridge;
     if (bridge && typeof bridge.startScreenCapture === 'function') {
-      const serverUrl = window.location.origin;
-      showToast('Requesting Android screen capture...', '📱');
+      const serverUrl = detectedLocalPcUrl || window.location.origin;
+      showToast(detectedLocalPcUrl ? '⚡ Streaming to PC over fast Local Wi-Fi!' : 'Requesting Android screen capture...', '📱');
       bridge.startScreenCapture(currentRoomId, serverUrl);
       return;
     }

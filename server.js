@@ -476,6 +476,32 @@ wss.on('connection', (ws, req) => {
   console.log(`[WS] ${isMobile ? '📱 Mobile Phone' : '💻 PC'} connected (Total: ${clients.size})`);
 
   ws.on('message', (message) => {
+    // 1. High-Performance Screen Streaming (Binary Frames over WebSocket)
+    if (Buffer.isBuffer(message)) {
+      let sent = false;
+      if (ws.roomId && rooms.has(ws.roomId)) {
+        const room = rooms.get(ws.roomId);
+        for (const pc of room.pcClients) {
+          if (pc.readyState === WebSocket.OPEN) {
+            pc.send(message);
+            sent = true;
+          }
+        }
+      }
+      if (!sent) {
+        for (const client of clients) {
+          if (client !== ws && (client.role === 'pc' || client.isPcClient || client.isLocalHost) && client.readyState === WebSocket.OPEN) {
+            client.send(message);
+            sent = true;
+          }
+        }
+      }
+      if (activeCloudBridgeWs && activeCloudBridgeWs.readyState === WebSocket.OPEN) {
+        activeCloudBridgeWs.send(message);
+      }
+      return;
+    }
+
     try {
       const data = JSON.parse(message);
 
@@ -505,6 +531,11 @@ wss.on('connection', (ws, req) => {
 
         console.log(`[Room ${roomId}] ${role === 'mobile' ? '📱 Mobile' : '💻 PC'} paired (PC: ${room.pcClients.size}, Mobile: ${room.mobileClients.size})`);
 
+        // Detect local network IP for superfast Wi-Fi streaming
+        const interfaces = getNetworkAddresses();
+        const localIp = interfaces.length > 0 ? interfaces[0].address : null;
+        const localUrl = localIp ? `http://${localIp}:${PORT}` : null;
+
         // Notify both devices in the private room
         broadcastToRoom(roomId, {
           type: 'room_status',
@@ -513,6 +544,9 @@ wss.on('connection', (ws, req) => {
           pcCount: room.pcClients.size,
           mobileCount: room.mobileClients.size,
           isPaired: room.pcClients.size > 0 && room.mobileClients.size > 0,
+          localIp,
+          localPort: PORT,
+          localUrl,
           timestamp: Date.now()
         });
 
@@ -523,7 +557,10 @@ wss.on('connection', (ws, req) => {
           role,
           pcCount: room.pcClients.size,
           mobileCount: room.mobileClients.size,
-          isPaired: room.pcClients.size > 0 && room.mobileClients.size > 0
+          isPaired: room.pcClients.size > 0 && room.mobileClients.size > 0,
+          localIp,
+          localPort: PORT,
+          localUrl
         }));
         return;
       }
